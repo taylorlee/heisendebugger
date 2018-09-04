@@ -3,7 +3,7 @@
 #[macro_use]
 extern crate yew;
 
-//mod qvm;
+mod qvm;
 
 use std::time::Duration;
 use yew::{initialize, run_loop, html::{App, Html}, services::{Task, interval::IntervalService}};
@@ -11,6 +11,7 @@ use yew::{initialize, run_loop, html::{App, Html}, services::{Task, interval::In
 pub struct Model {
     clock: u64,
     job: Option<Box<Task>>,
+    qvm: qvm::QVM, 
 }
 
 pub enum Msg {
@@ -32,6 +33,7 @@ fn main() {
     let model = Model {
         clock: 0,
         job: None,
+        qvm: qvm::init(),
     };
     app.mount(context, model, update, view);
     run_loop();
@@ -41,6 +43,7 @@ fn update(context: &mut Context, model: &mut Model, msg: Msg) {
     match msg {
         Msg::Step => {
             model.clock += 1;
+            model.qvm.qb1.a.re += 2.0;
         }
         Msg::Start => {
             let timeout = Duration::from_millis(500);
@@ -60,7 +63,10 @@ fn view(model: &Model) -> Html<Msg> {
     html! {
         <div>
             <section class="section",>
-              <span class=("tag","is-primary"),> { model.clock } </span>
+              <span class=("tag","is-primary"),> {"Clock: "} { model.clock } </span>
+              <br></br>
+              <span class=("tag","is-primary"),> {"QB: "} { model.qvm.qb1.a.re} </span>
+              <br></br>
               <button class="button", onclick=move|_| Msg::Step,>{ "Step" }</button>
               <button class="button", onclick=move|_| Msg::Start,>{ "Start" }</button>
               <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button>
