@@ -6,9 +6,7 @@ extern crate yew;
 //mod qvm;
 
 use std::time::Duration;
-use yew::prelude::*;
-use yew::services::{interval::IntervalService, Task};
-
+use yew::{initialize, run_loop, html::{App, Html}, services::{Task, interval::IntervalService}};
 
 pub struct Model {
     clock: u64,
@@ -21,54 +19,54 @@ pub enum Msg {
     Step,
 }
 
-impl Component for Model {
-    type Message = Msg;
-    type Properties = ();
-
-    fn create(_: Self::Properties, _: ComponentLink<Self>) -> Self {
-        Model {
-            clock: 0,
-            job: None,
-            interval: IntervalService::new(),
-        }
-    }
-
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
-        match msg {
-            Msg::Step => {
-                self.clock += 1;
-            }
-            Msg::Start => {
-                let timeout = Duration::from_millis(500);
-                let handle = self.interval.spawn(timeout, || Msg::Step);
-                self.job = Some(Box::new(handle));
-            }
-            Msg::Stop => {
-                if let Some(mut task) = self.job.take() {
-                    task.cancel();
-                }
-                self.job = None;
-            }
-        }
-    }
-}
-
-fn view(&model) -> Html<Self> {
-        html! {
-            <div>
-                <section class="section",>
-                  <span class=("tag","is-primary"),> { self.clock } </span>
-                  <button class="button", onclick=move|_| Msg::Step,>{ "Step" }</button>
-                  <button class="button", onclick=move|_| Msg::Start,>{ "Start" }</button>
-                  <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button>
-                </section>
-            </div>
-        }
-    }
+pub struct Context {
+    pub interval: IntervalService<Msg>,
 }
 
 fn main() {
-    yew::initialize();
-    App::<Model>::new().mount_to_body();
-    yew::run_loop();
+    initialize();
+    let mut app = App::new();
+    let context = Context {
+        interval: IntervalService::new(app.sender()),
+    };
+    let model = Model {
+        clock: 0,
+        job: None,
+    };
+    app.mount(context, model, update, view);
+    run_loop();
 }
+
+fn update(context: &mut Context, model: &mut Model, msg: Msg) {
+    match msg {
+        Msg::Step => {
+            model.clock += 1;
+        }
+        Msg::Start => {
+            let timeout = Duration::from_millis(500);
+            let handle = context.interval.spawn(timeout, || Msg::Step);
+            model.job = Some(Box::new(handle));
+        }
+        Msg::Stop => {
+            if let Some(mut task) = model.job.take() {
+                task.cancel();
+            }
+            model.job = None;
+        }
+    }
+}
+
+fn view(model: &Model) -> Html<Msg> {
+    html! {
+        <div>
+            <section class="section",>
+              <span class=("tag","is-primary"),> { model.clock } </span>
+              <button class="button", onclick=move|_| Msg::Step,>{ "Step" }</button>
+              <button class="button", onclick=move|_| Msg::Start,>{ "Start" }</button>
+              <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button>
+            </section>
+        </div>
+    }
+}
+
+
