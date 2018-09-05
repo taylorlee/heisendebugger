@@ -4,20 +4,21 @@
 extern crate yew;
 
 mod qvm;
+mod complex;
 
 use std::time::Duration;
 use yew::{initialize, run_loop, html::{App, Html}, services::{Task, interval::IntervalService}};
 
 pub struct Model {
-    clock: u64,
-    job: Option<Box<Task>>,
     qvm: qvm::QVM, 
+    job: Option<Box<Task>>,
 }
 
 pub enum Msg {
     Start,
     Stop,
-    Step,
+    Next,
+    Prev,
 }
 
 pub struct Context {
@@ -31,9 +32,8 @@ fn main() {
         interval: IntervalService::new(app.sender()),
     };
     let model = Model {
-        clock: 0,
         job: None,
-        qvm: qvm::init(),
+        qvm: qvm::QVM::new(),
     };
     app.mount(context, model, update, view);
     run_loop();
@@ -41,13 +41,15 @@ fn main() {
 
 fn update(context: &mut Context, model: &mut Model, msg: Msg) {
     match msg {
-        Msg::Step => {
-            model.clock += 1;
-            model.qvm.qb1.a.re += 2.0;
+        Msg::Prev => {
+            model.qvm.prev();
+        }
+        Msg::Next => {
+            model.qvm.next();
         }
         Msg::Start => {
             let timeout = Duration::from_millis(500);
-            let handle = context.interval.spawn(timeout, || Msg::Step);
+            let handle = context.interval.spawn(timeout, || Msg::Next);
             model.job = Some(Box::new(handle));
         }
         Msg::Stop => {
@@ -63,11 +65,14 @@ fn view(model: &Model) -> Html<Msg> {
     html! {
         <div>
             <section class="section",>
-              <span class=("tag","is-primary"),> {"Clock: "} { model.clock } </span>
+              <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
               <br></br>
-              <span class=("tag","is-primary"),> {"QB: "} { model.qvm.qb1.a.re} </span>
+              <span class=("tag","is-primary"),> {"a: "} { model.qvm.qb.0.repr() } </span>
               <br></br>
-              <button class="button", onclick=move|_| Msg::Step,>{ "Step" }</button>
+              <span class=("tag","is-primary"),> {"b: "} { model.qvm.qb.1.repr() } </span>
+              <br></br>
+              <button class="button", onclick=move|_| Msg::Prev,>{ "Prev" }</button>
+              <button class="button", onclick=move|_| Msg::Next,>{ "Next" }</button>
               <button class="button", onclick=move|_| Msg::Start,>{ "Start" }</button>
               <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button>
             </section>
