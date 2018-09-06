@@ -62,9 +62,19 @@ fn update(context: &mut Context, model: &mut Model, msg: Msg) {
 }
 
 fn view(model: &Model) -> Html<Msg> {
+    let mut program = String::default();
+    for (i, chr) in model.qvm.program.iter().enumerate()  {
+        let mut letter = *chr;
+        if i == model.qvm.counter {
+            letter = letter.to_ascii_uppercase();
+        }
+        program.push(letter);
+    }
     html! {
         <div>
             <section class="section",>
+              <span class=("tag","is-primary"),> {"program: "} { program } </span>
+              <br></br>
               <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
               <br></br>
               <span class=("tag","is-primary"),> {"a: "} { model.qvm.qb.0.repr() } </span>

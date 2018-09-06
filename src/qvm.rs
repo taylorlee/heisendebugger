@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use std::collections::HashMap;
 use complex::*;
 
 type Pair = (Complex, Complex);
@@ -10,7 +11,8 @@ type G1 = (Pair, Pair);
 pub struct QVM {
     pub counter: usize,
     pub qb: Pair,
-    pub program: Vec<G1>,
+    pub program: Vec<char>,
+    gates: HashMap<char, G1>,
 }
 
 fn x() -> G1 {
@@ -40,23 +42,30 @@ fn apply(gate: &G1, qb: &Qubit) -> Qubit {
 
 impl QVM {
     pub fn new() -> QVM {
+        let mut gates = HashMap::new();
+        gates.insert('x',x());
+        gates.insert('z',z());
         QVM {
             counter: 0,
             qb: ZERO,
-            program: vec!(x(),x(),x(),z(),z(),z()),
+            program: "xxxzzz".chars().collect(),
+            gates: gates,
         }
+    }
+    fn operate(&mut self) { 
+        let op = &self.program[self.counter];
+        let gate = &self.gates[op];
+        self.qb = apply(gate, &self.qb); 
     }
     pub fn prev(&mut self) {
         if self.counter > 0  {
             self.counter -= 1;
-            let op = &self.program[self.counter];
-            self.qb = apply(op, &self.qb); 
+            self.operate();
         }
     }
     pub fn next(&mut self) {
         if self.counter < self.program.len() {
-            let op = &self.program[self.counter];
-            self.qb = apply(op, &self.qb); 
+            self.operate();
             self.counter += 1;
         }
     }
