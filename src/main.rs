@@ -3,18 +3,25 @@
 #[macro_use]
 extern crate yew;
 
+extern crate stdweb;
+
 mod qvm;
 mod complex;
 
 use std::time::Duration;
-use yew::{initialize, run_loop, html::{App, Html}, services::{Task, interval::IntervalService}};
+use yew::{initialize, run_loop, html::{App, Html, KeyData, MouseData, InputData}, services::{Task, interval::IntervalService}};
+use stdweb::web::document;
+use stdweb::web::INode;
 
 pub struct Model {
     qvm: qvm::QVM, 
     job: Option<Box<Task>>,
+    running: bool,
 }
 
 pub enum Msg {
+    Noop,
+    Reset,
     Start,
     Stop,
     Next,
@@ -34,6 +41,7 @@ fn main() {
     let model = Model {
         job: None,
         qvm: qvm::QVM::new(),
+        running: false,
     };
     app.mount(context, model, update, view);
     run_loop();
@@ -41,6 +49,17 @@ fn main() {
 
 fn update(context: &mut Context, model: &mut Model, msg: Msg) {
     match msg {
+        Msg::Noop => {
+        }
+        Msg::Reset => {
+            let elem = document().get_element_by_id("program").unwrap();
+            let node = elem.as_node();
+            let _prog = node.inner_text();
+            warn!("{}", _prog);
+
+            let prog = "xxxzzz";
+            model.qvm.reset(prog.to_string());
+        }
         Msg::Prev => {
             model.qvm.prev();
         }
@@ -51,12 +70,14 @@ fn update(context: &mut Context, model: &mut Model, msg: Msg) {
             let timeout = Duration::from_millis(500);
             let handle = context.interval.spawn(timeout, || Msg::Next);
             model.job = Some(Box::new(handle));
+            model.running = true;
         }
         Msg::Stop => {
             if let Some(mut task) = model.job.take() {
                 task.cancel();
             }
             model.job = None;
+            model.running = false;
         }
     }
 }
@@ -70,6 +91,36 @@ fn view(model: &Model) -> Html<Msg> {
         }
         program.push(letter);
     }
+    let controller = if model.running {
+        html! {
+          <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button>
+        }
+    } else {
+        let next = |_: MouseData| {
+            Msg::Noop
+        };
+        let input = |_: InputData| {
+            Msg::Noop
+        };
+        let key = |data: KeyData| {
+            if data.key == "Enter" {
+                Msg::Reset
+            } else {
+                Msg::Noop
+            }
+        };
+
+        html! {
+          <div>
+              <input id="program", type="text", oninput=input, onkeypress=key,/>
+              <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
+              <button class="button", onclick=move|_| Msg::Start,>{ "Start" }</button>
+              <button class="button", onclick=move|_| Msg::Prev,>{ "Prev" }</button>
+              <button class="button", onclick=next,>{ "Next" }</button>
+          </div>
+        }
+    };
+
     html! {
         <div>
             <section class="section",>
@@ -77,14 +128,11 @@ fn view(model: &Model) -> Html<Msg> {
               <br></br>
               <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
               <br></br>
-              <span class=("tag","is-primary"),> {"a: "} { model.qvm.qb.0.repr() } </span>
+              <span class=("tag","is-primary"),> { model.qvm.qb.0.repr() } </span>
               <br></br>
-              <span class=("tag","is-primary"),> {"b: "} { model.qvm.qb.1.repr() } </span>
+              <span class=("tag","is-primary"),> { model.qvm.qb.1.repr() } </span>
               <br></br>
-              <button class="button", onclick=move|_| Msg::Prev,>{ "Prev" }</button>
-              <button class="button", onclick=move|_| Msg::Next,>{ "Next" }</button>
-              <button class="button", onclick=move|_| Msg::Start,>{ "Start" }</button>
-              <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button>
+              { controller }
             </section>
         </div>
     }

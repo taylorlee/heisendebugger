@@ -31,11 +31,11 @@ fn z() -> G1 {
 const ZERO: Qubit = (C1, C0);
 const ONE: Qubit = (C0, C1);
 
-fn apply(gate: &G1, qb: &Qubit) -> Qubit {
+fn apply(gate: G1, qb: Qubit) -> Qubit {
     let (g0, g1) = gate;
     (
-        g0.0.mul(&qb.0).add(&g0.1.mul(&qb.1)),
-        g1.0.mul(&qb.0).add(&g1.1.mul(&qb.1)),
+        g0.0 * qb.0 + g0.1 * qb.1,
+        g1.0 * qb.0 + g1.1 * qb.1,
     )
 
 }
@@ -52,10 +52,15 @@ impl QVM {
             gates: gates,
         }
     }
+    pub fn reset(&mut self, program: String) {
+        self.counter = 0;
+        self.qb = ZERO;
+        self.program = program.chars().collect();
+    }
     fn operate(&mut self) { 
         let op = &self.program[self.counter];
-        let gate = &self.gates[op];
-        self.qb = apply(gate, &self.qb); 
+        let gate = self.gates[op];
+        self.qb = apply(gate, self.qb); 
     }
     pub fn prev(&mut self) {
         if self.counter > 0  {

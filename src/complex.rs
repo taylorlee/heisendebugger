@@ -1,6 +1,7 @@
 #![allow(dead_code)]
-use std::ops::Neg;
+use std::ops::{Neg, Add, Mul};
 
+#[derive(Copy, Clone)]
 pub struct Complex {
     re: f64,
     im: f64,
@@ -24,6 +25,24 @@ impl Neg for Complex {
         }
     }
 }
+impl Add for Complex {
+    type Output = Complex;
+    fn add(self, other: Complex) -> Complex {
+        Complex {
+            re: self.re + other.re,
+            im: self.im + other.im,
+        }
+    }
+}
+impl Mul for Complex {
+    type Output = Complex;
+    fn mul(self, other: Complex) -> Complex {
+        Complex {
+            re: self.re * other.re - self.im * other.im,
+            im: self.re * other.im + self.im * other.re,
+        }
+    }
+}
 
 impl Complex {
     pub fn new(re: f64, im: f64) -> Complex {
@@ -35,33 +54,14 @@ impl Complex {
     pub fn repr(&self) -> String {
         format!("<{}+{}i>", self.re, self.im)
     }
-
-    pub fn incr(&self) -> Complex {
-        Complex {
-            re: self.re + 1.0,
-            im: self.im + 1.0,
-        }
-    }
-    pub fn add(&self, other: &Complex) -> Complex {
-        Complex {
-            re: self.re + other.re,
-            im: self.im + other.im,
-        }
-    }
-    pub fn mul(&self, other: &Complex) -> Complex {
-        Complex {
-            re: self.re * other.re,
-            im: self.im * other.im,
-        }
-    }
     pub fn conj(&self) -> Complex {
         Complex {
             re: self.re,
             im: -self.im,
         }
     }
-    pub fn norm(&self) -> Complex {
-        self.mul(&self.conj())
+    pub fn norm(self) -> Complex {
+        self * self.conj()
     }
 }
 
