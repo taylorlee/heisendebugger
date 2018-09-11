@@ -2,16 +2,19 @@
 
 #[macro_use]
 extern crate yew;
-
 extern crate stdweb;
 
 mod qvm;
 mod complex;
 
 use std::time::Duration;
-use yew::{initialize, run_loop, html::{App, Html, KeyData, MouseData, InputData}, services::{Task, interval::IntervalService}};
+
+use yew::{initialize, run_loop, services::{Task, interval::IntervalService}};
+use yew::{html::{App, Html, KeyData}};
+
 use stdweb::web::document;
-use stdweb::web::INode;
+use stdweb::web::html_element::InputElement;
+use stdweb::unstable::TryInto;
 
 pub struct Model {
     qvm: qvm::QVM, 
@@ -49,16 +52,15 @@ fn main() {
 
 fn update(context: &mut Context, model: &mut Model, msg: Msg) {
     match msg {
-        Msg::Noop => {
-        }
+        Msg::Noop => {}
         Msg::Reset => {
-            let elem = document().get_element_by_id("program").unwrap();
-            let node = elem.as_node();
-            let _prog = node.inner_text();
-            warn!("{}", _prog);
-
-            let prog = "xxxzzz";
-            model.qvm.reset(prog.to_string());
+            let input: InputElement = document()
+                .get_element_by_id("program")
+                .unwrap()
+                .try_into()
+                .unwrap();
+            let program = input.value().try_into().unwrap();
+            model.qvm.reset(program);
         }
         Msg::Prev => {
             model.qvm.prev();
@@ -81,27 +83,26 @@ fn update(context: &mut Context, model: &mut Model, msg: Msg) {
         }
     }
 }
-
 fn view(model: &Model) -> Html<Msg> {
-    let mut program = String::default();
-    for (i, chr) in model.qvm.program.iter().enumerate()  {
-        let mut letter = *chr;
-        if i == model.qvm.counter {
-            letter = letter.to_ascii_uppercase();
-        }
-        program.push(letter);
-    }
+    let program: String = model
+        .qvm
+        .program
+        .iter()
+        .enumerate()
+        .map(|(i, c)| {
+            if i == model.qvm.counter {
+                c.to_ascii_uppercase()
+            } else {
+                *c
+            }
+        })
+        .collect();
+
     let controller = if model.running {
         html! {
           <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button>
         }
     } else {
-        let next = |_: MouseData| {
-            Msg::Noop
-        };
-        let input = |_: InputData| {
-            Msg::Noop
-        };
         let key = |data: KeyData| {
             if data.key == "Enter" {
                 Msg::Reset
@@ -112,11 +113,11 @@ fn view(model: &Model) -> Html<Msg> {
 
         html! {
           <div>
-              <input id="program", type="text", oninput=input, onkeypress=key,/>
+              <input id="program", type="text", onkeypress=key, value={&program},/>
               <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
               <button class="button", onclick=move|_| Msg::Start,>{ "Start" }</button>
               <button class="button", onclick=move|_| Msg::Prev,>{ "Prev" }</button>
-              <button class="button", onclick=next,>{ "Next" }</button>
+              <button class="button", onclick=move|_| Msg::Next,>{ "Next" }</button>
           </div>
         }
     };
@@ -124,7 +125,7 @@ fn view(model: &Model) -> Html<Msg> {
     html! {
         <div>
             <section class="section",>
-              <span class=("tag","is-primary"),> {"program: "} { program } </span>
+              <span class=("tag","is-primary"),> {"program: "} { &program } </span>
               <br></br>
               <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
               <br></br>
