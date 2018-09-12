@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use std::ops::{Neg, Add, Mul};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Complex {
     re: f64,
     im: f64,

@@ -1,8 +1,13 @@
-#![recursion_limit = "256"] // needed for html! macro expansion
-
+#![recursion_limit = "256"] // needed for html! macro expansion 
 #[macro_use]
 extern crate yew;
 extern crate stdweb;
+extern crate serde;
+extern crate serde_json;
+extern crate num_complex;
+
+#[macro_use]
+extern crate serde_derive;
 
 mod qvm;
 mod complex;
@@ -10,11 +15,12 @@ mod complex;
 use std::time::Duration;
 
 use yew::{initialize, run_loop, services::{Task, interval::IntervalService}};
-use yew::{html::{App, Html, KeyData}};
+use yew::{html::{App, Html}};
 
 use stdweb::web::document;
-use stdweb::web::html_element::InputElement;
-use stdweb::unstable::TryInto;
+use stdweb::traits::*;
+use stdweb::web::html_element::{InputElement, TextAreaElement};
+use stdweb::unstable::{TryInto};
 
 pub struct Model {
     qvm: qvm::QVM, 
@@ -25,6 +31,8 @@ pub struct Model {
 pub enum Msg {
     Noop,
     Reset,
+    Program, 
+    Gates,
     Start,
     Stop,
     Next,
@@ -50,17 +58,35 @@ fn main() {
     run_loop();
 }
 
+fn get_input(id: &str) -> String {
+    let input: InputElement = document()
+        .get_element_by_id(id)
+        .unwrap()
+        .try_into()
+        .unwrap();
+    input.raw_value()
+}
+fn get_text(id: &str) -> String {
+    let input: TextAreaElement = document()
+        .get_element_by_id(id)
+        .unwrap()
+        .try_into()
+        .unwrap();
+    input.value()
+}
 fn update(context: &mut Context, model: &mut Model, msg: Msg) {
     match msg {
         Msg::Noop => {}
         Msg::Reset => {
-            let input: InputElement = document()
-                .get_element_by_id("program")
-                .unwrap()
-                .try_into()
-                .unwrap();
-            let program = input.value().try_into().unwrap();
-            model.qvm.reset(program);
+            model.qvm.reset();
+        }
+        Msg::Gates=> {
+            let gates = get_text("gates");
+            model.qvm.set_gates(&gates);
+        }
+        Msg::Program=> {
+            let prog = get_input("program");
+            model.qvm.update(prog);
         }
         Msg::Prev => {
             model.qvm.prev();
@@ -84,38 +110,23 @@ fn update(context: &mut Context, model: &mut Model, msg: Msg) {
     }
 }
 fn view(model: &Model) -> Html<Msg> {
-    let program: String = model
-        .qvm
-        .program
-        .iter()
-        .enumerate()
-        .map(|(i, c)| {
-            if i == model.qvm.counter {
-                c.to_ascii_uppercase()
-            } else {
-                *c
-            }
-        })
-        .collect();
+    let pos = " ".repeat(model.qvm.counter) + "^";
+    let program: String = model.qvm.program.iter().collect();
+    let gates = model.qvm.show_gates();
 
     let controller = if model.running {
         html! {
-          <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button>
-        }
+          <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button> }
     } else {
-        let key = |data: KeyData| {
-            if data.key == "Enter" {
-                Msg::Reset
-            } else {
-                Msg::Noop
-            }
-        };
-
         html! {
           <div>
-              <input id="program", type="text", onkeypress=key, value={&program},/>
+              <textarea id="gates", cols=80, rows=10, onkeypress=move|_| Msg::Gates,>{gates} </textarea><span>{"gates"}</span>
+              <br></br>
+              <input id="program", type="text", onkeypress=move|_| Msg::Program, value={program},/><span>{"program"}</span>
+              <br></br>
+              <input type="text", disabled=true, value={pos},/><span>{"position"}</span>
+              <br></br>
               <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
-              <button class="button", onclick=move|_| Msg::Start,>{ "Start" }</button>
               <button class="button", onclick=move|_| Msg::Prev,>{ "Prev" }</button>
               <button class="button", onclick=move|_| Msg::Next,>{ "Next" }</button>
           </div>
@@ -125,13 +136,13 @@ fn view(model: &Model) -> Html<Msg> {
     html! {
         <div>
             <section class="section",>
-              <span class=("tag","is-primary"),> {"program: "} { &program } </span>
+              <div>{ model.qvm.show_gates() }</div>
               <br></br>
               <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
               <br></br>
-              <span class=("tag","is-primary"),> { model.qvm.qb.0.repr() } </span>
+              <span class=("tag","is-primary"),> { model.qvm.qb.0} </span>
               <br></br>
-              <span class=("tag","is-primary"),> { model.qvm.qb.1.repr() } </span>
+              <span class=("tag","is-primary"),> { model.qvm.qb.1} </span>
               <br></br>
               { controller }
             </section>
