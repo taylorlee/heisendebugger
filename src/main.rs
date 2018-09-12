@@ -1,29 +1,32 @@
-#![recursion_limit = "256"] // needed for html! macro expansion 
+#![recursion_limit = "256"] // needed for html! macro expansion
 #[macro_use]
 extern crate yew;
-extern crate stdweb;
+extern crate num_complex;
 extern crate serde;
 extern crate serde_json;
-extern crate num_complex;
+extern crate stdweb;
 
 #[macro_use]
 extern crate serde_derive;
 
-mod qvm;
 mod complex;
+mod qvm;
 
 use std::time::Duration;
 
-use yew::{initialize, run_loop, services::{Task, interval::IntervalService}};
-use yew::{html::{App, Html}};
+use yew::html::{App, Html};
+use yew::{
+    initialize, run_loop,
+    services::{interval::IntervalService, Task},
+};
 
-use stdweb::web::document;
 use stdweb::traits::*;
+use stdweb::unstable::TryInto;
+use stdweb::web::document;
 use stdweb::web::html_element::{InputElement, TextAreaElement};
-use stdweb::unstable::{TryInto};
 
 pub struct Model {
-    qvm: qvm::QVM, 
+    qvm: qvm::QVM,
     job: Option<Box<Task>>,
     running: bool,
 }
@@ -31,7 +34,7 @@ pub struct Model {
 pub enum Msg {
     Noop,
     Reset,
-    Program, 
+    Program,
     Gates,
     Start,
     Stop,
@@ -80,11 +83,11 @@ fn update(context: &mut Context, model: &mut Model, msg: Msg) {
         Msg::Reset => {
             model.qvm.reset();
         }
-        Msg::Gates=> {
+        Msg::Gates => {
             let gates = get_text("gates");
             model.qvm.set_gates(&gates);
         }
-        Msg::Program=> {
+        Msg::Program => {
             let prog = get_input("program");
             model.qvm.update(prog);
         }
@@ -116,7 +119,7 @@ fn view(model: &Model) -> Html<Msg> {
 
     let controller = if model.running {
         html! {
-          <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button> }
+        <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button> }
     } else {
         html! {
           <div>
@@ -149,5 +152,3 @@ fn view(model: &Model) -> Html<Msg> {
         </div>
     }
 }
-
-

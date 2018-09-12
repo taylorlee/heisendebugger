@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
 use num_complex;
 use serde_json;
+use std::collections::HashMap;
 
 type Complex = num_complex::Complex32;
 type Pair = (Complex, Complex);
@@ -17,37 +17,19 @@ pub struct QVM {
     gates: HashMap<char, G1>,
 }
 
-const C0: Complex = Complex {
-    re: 0.0,
-    im: 0.0,
-};
+const C0: Complex = Complex { re: 0.0, im: 0.0 };
 
-const C1: Complex = Complex {
-    re: 1.0,
-    im: 0.0,
-};
-const I: Complex = Complex {
-    re: 0.0,
-    im: 1.0,
-};
+const C1: Complex = Complex { re: 1.0, im: 0.0 };
+const I: Complex = Complex { re: 0.0, im: 1.0 };
 
 fn x() -> G1 {
-    (
-        (C0, C1),
-        (C1, C0),
-    )
+    ((C0, C1), (C1, C0))
 }
 fn z() -> G1 {
-    (
-        (C1, C0),
-        (C0, -C1),
-    )
+    ((C1, C0), (C0, -C1))
 }
 fn y() -> G1 {
-    (
-        (C0, -I),
-        (I, C0),
-    )
+    ((C0, -I), (I, C0))
 }
 
 const ZERO: Qubit = (C1, C0);
@@ -55,11 +37,7 @@ const ONE: Qubit = (C0, C1);
 
 fn apply(gate: G1, qb: Qubit) -> Qubit {
     let (g0, g1) = gate;
-    (
-        g0.0 * qb.0 + g0.1 * qb.1,
-        g1.0 * qb.0 + g1.1 * qb.1,
-    )
-
+    (g0.0 * qb.0 + g0.1 * qb.1, g1.0 * qb.0 + g1.1 * qb.1)
 }
 
 impl QVM {
@@ -88,13 +66,13 @@ impl QVM {
     pub fn show_gates(&self) -> String {
         serde_json::to_string_pretty(&self.gates).unwrap()
     }
-    fn operate(&mut self) { 
+    fn operate(&mut self) {
         let op = &self.program[self.counter];
         let gate = self.gates[op];
-        self.qb = apply(gate, self.qb); 
+        self.qb = apply(gate, self.qb);
     }
     pub fn prev(&mut self) {
-        if self.counter > 0  {
+        if self.counter > 0 {
             self.counter -= 1;
             self.operate();
         }
@@ -105,5 +83,4 @@ impl QVM {
             self.counter += 1;
         }
     }
-
 }

@@ -1,6 +1,12 @@
 
+hdb
+    easier gate mod
+    better position arrow
+    mixed states
 
-easier gate mod
-better position arrow
-mixed states
-
+rust
+    no lock checks
+    racer completion
+    html tag checks static
+    faster build
+    wasm target working
