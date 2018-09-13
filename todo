@@ -1,8 +1,10 @@
 
 hdb
     easier gate mod
-    better position arrow
-    mixed states
+    break program into protoquil
+    (apply gate to qb)
+    mixed states via tensors
+    measurement
 
 rust
     no lock checks

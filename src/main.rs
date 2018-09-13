@@ -9,12 +9,16 @@ extern crate stdweb;
 #[macro_use]
 extern crate serde_derive;
 
+#[macro_use]
+extern crate ndarray;
+
+
 mod complex;
 mod qvm;
 
 use std::time::Duration;
 
-use yew::html::{App, Html};
+use yew::html::{App, Html, KeyData};
 use yew::{
     initialize, run_loop,
     services::{interval::IntervalService, Task},
@@ -121,17 +125,28 @@ fn view(model: &Model) -> Html<Msg> {
         html! {
         <button class="button", onclick=move|_| Msg::Stop,>{ "Stop" }</button> }
     } else {
+        let keypress = |data: KeyData| {
+            //warn!("{}",data.key);
+            if data.key == "ArrowUp" {
+                Msg::Next
+            } else if data.key == "ArrowDown" {
+                Msg::Prev
+            } else {
+                Msg::Program
+            }
+        };
         html! {
           <div>
-              <textarea id="gates", cols=80, rows=10, onkeypress=move|_| Msg::Gates,>{gates} </textarea><span>{"gates"}</span>
-              <br></br>
-              <input id="program", type="text", onkeypress=move|_| Msg::Program, value={program},/><span>{"program"}</span>
-              <br></br>
-              <input type="text", disabled=true, value={pos},/><span>{"position"}</span>
-              <br></br>
-              <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
-              <button class="button", onclick=move|_| Msg::Prev,>{ "Prev" }</button>
-              <button class="button", onclick=move|_| Msg::Next,>{ "Next" }</button>
+            <div>{"gates"}</div>
+            <textarea id="gates", cols=30, rows=25, onkeypress=move|_| Msg::Gates,>{gates} </textarea>
+            <br></br>
+            <input id="program", type="text", onkeypress=keypress, value={&program},/><span>{"program"}</span>
+            <br></br>
+            <input type="text", disabled=true, value={&pos},/><span>{"position"}</span>
+            <br></br>
+            <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
+            <button class="button", onclick=move|_| Msg::Prev,>{ "Prev" }</button>
+            <button class="button", onclick=move|_| Msg::Next,>{ "Next" }</button>
           </div>
         }
     };
@@ -139,15 +154,12 @@ fn view(model: &Model) -> Html<Msg> {
     html! {
         <div>
             <section class="section",>
-              <div>{ model.qvm.show_gates() }</div>
-              <br></br>
+              { controller }
               <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
               <br></br>
-              <span class=("tag","is-primary"),> { model.qvm.qb.0} </span>
+              <span class=("tag","is-primary"),> { &model.qvm } </span>
               <br></br>
-              <span class=("tag","is-primary"),> { model.qvm.qb.1} </span>
-              <br></br>
-              { controller }
+
             </section>
         </div>
     }

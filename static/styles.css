@@ -1,1 +1,4 @@
-font-family: monospace;
+html *
+{
+   font-family: monospace !important;
+}
