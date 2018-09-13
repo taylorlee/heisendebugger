@@ -1,9 +1,9 @@
 
 hdb
-    easier gate mod
-    break program into protoquil
+    program repr in readystate
     (apply gate to qb)
     mixed states via tensors
+    easier gate mod
     measurement
 
 rust
