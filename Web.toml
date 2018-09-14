@@ -1,4 +1,4 @@
-default-target = "asmjs-unknown-emscripten"
+default-target = "wasm32-unknown-emscripten"
 
 [cargo-web]
 minimum-version = "0.6.0"
@@ -7,3 +7,4 @@ minimum-version = "0.6.0"
 link-args = ["-s", "TOTAL_MEMORY=33554432"]
 
 [target.wasm32-unknown-unknown]
+[target.wasm32-unknown-emscripten]

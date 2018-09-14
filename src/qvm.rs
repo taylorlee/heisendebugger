@@ -64,9 +64,13 @@ impl QVM {
         QVM {
             counter: 0,
             qb: (zero(), zero()),
-            program: vec![Instruction::Single("x".into(), "0".into())],
+            program: vec![],
             gates: map,
         }
+    }
+    pub fn reset(&mut self) {
+        self.counter = 0;
+        self.qb = (zero(), zero());
     }
     pub fn read_program(&self) -> String {
         String::from_iter(self.program.iter().map(|inst| {
@@ -76,10 +80,6 @@ impl QVM {
                 _ => "".into(),
             }
         }))
-    }
-    pub fn reset(&mut self) {
-        self.counter = 0;
-        self.qb = (zero(), zero());
     }
     pub fn update(&mut self, program: &str) -> bool {
         let prog = program.lines().map(|line| {
@@ -112,9 +112,14 @@ impl QVM {
         serde_json::to_string_pretty(&self.gates).unwrap()
     }
     fn operate(&mut self) {
-        if let Instruction::Single(gate, _) = &self.program[self.counter] {
+        if let Instruction::Single(gate, qb) = &self.program[self.counter] {
             let gate = &self.gates[gate];
-            self.qb = (apply(&gate, &self.qb.0), self.qb.1.clone());
+            let qb = match qb.as_str() {
+                "0" => (apply(&gate, &self.qb.0), self.qb.1.clone()),
+                "1" => (self.qb.0.clone(), apply(&gate, &self.qb.1)),
+                _ => panic!("bad target {}", qb),
+            };
+            self.qb = qb;
         }
     }
     pub fn prev(&mut self) {
@@ -133,6 +138,6 @@ impl QVM {
 
 impl fmt::Display for QVM {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.qb.0)
+        write!(f, "[{}, {}]", self.qb.0, self.qb.1)
     }
 }

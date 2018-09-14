@@ -15,7 +15,6 @@ extern crate serde_derive;
 #[macro_use]
 extern crate ndarray;
 
-mod complex;
 mod qvm;
 
 use yew::html::{App, Html};
@@ -29,15 +28,8 @@ use stdweb::web::html_element::{InputElement, TextAreaElement};
 enum State {
     Ready,
     Editing,
-    Error,
 }
-pub struct Model {
-    qvm: qvm::QVM,
-    gate_state: State,
-    gate_edit: String,
-    program_state: State,
-    program_edit: String,
-}
+
 
 pub enum Msg {
     Noop,
@@ -53,18 +45,36 @@ pub enum Msg {
 }
 
 struct Context {}
+struct Editor {
+    state: State,
+    edit: String,
+    error: bool,
+}
+
+pub struct Model {
+    qvm: qvm::QVM,
+    gates: Editor,
+    program: Editor,
+}
 
 fn main() {
     initialize();
     let mut app = App::new();
-    let model = Model {
+    let mut model = Model {
         qvm: qvm::QVM::new(),
-        gate_state: State::Ready,
-        gate_edit: "".to_string(),
-        program_state: State::Ready,
-        program_edit: "".to_string(),
-
+        gates: Editor {
+            state: State::Ready,
+            edit: "".to_string(),
+            error: false,
+        },
+        program: Editor {
+            state: State::Ready,
+            edit: "h 0\nx 0\n".to_string(),
+            error: false,
+        },
     };
+    model.qvm.update(&model.program.edit);
+    model.gates.edit = model.qvm.show_gates();
     app.mount(Context {}, model, update, view);
     run_loop();
 }
@@ -84,27 +94,35 @@ fn update(_: &mut Context, model: &mut Model, msg: Msg) {
             model.qvm.reset();
         }
         Msg::EditGates => {
-            model.gate_state = State::Editing;
+            model.gates.state = State::Editing;
         }
         Msg::SaveGates => {
             let gates = get_text("gates");
-            model.gate_state = if model.qvm.set_gates(&gates) {
+            let editor = &mut model.gates;
+            editor.state = if model.qvm.set_gates(&gates) {
+                editor.edit = gates;
+                editor.error = false;
                 State::Ready
             } else {
-                model.gate_edit = gates;
-                State::Error
+                editor.edit = gates;
+                editor.error = true;
+                State::Editing
             };
         }
         Msg::EditProgram => {
-            model.program_state = State::Editing;
+            model.program.state = State::Editing;
         }
         Msg::SaveProgram => {
             let prog = get_text("program");
-            model.program_state = if model.qvm.update(&prog) {
+            let editor = &mut model.program;
+            editor.state = if model.qvm.update(&prog) {
+                editor.edit = prog;
+                editor.error = false;
                 State::Ready
             } else {
-                model.program_edit = prog;
-                State::Error
+                editor.edit = prog;
+                editor.error = true;
+                State::Editing
             };
         }
         Msg::Prev => {
@@ -116,39 +134,38 @@ fn update(_: &mut Context, model: &mut Model, msg: Msg) {
     }
 }
 fn view(model: &Model) -> Html<Msg> {
-    let gates = match model.gate_state {
+    let err = |editor: &Editor| if editor.error {
+        "ERROR!"
+    } else {
+        ""
+    };
+    let gates = match model.gates.state {
         State::Ready => html! {
             <button class="button", onclick=move|_| Msg::EditGates,>{"Edit Gates"}</button>
         },
         State::Editing => html! {
             <div>
+                <div>{err(&model.gates)}</div>
                 <button class="button", onclick=move|_| Msg::SaveGates,>{"Save Gates"}</button>
-                <textarea id="gates", cols=30, rows=25, onkeypress=move|_| Msg::EditGates,>{model.qvm.show_gates()} </textarea>
-            </div>
-        },
-        State::Error => html! {
-            <div>
-                <div>{"ERROR!"}</div>
-                <button class="button", onclick=move|_| Msg::SaveGates,>{"Save Gates"}</button>
-                <textarea id="gates", cols=30, rows=25, onkeypress=move|_| Msg::EditGates,>{&model.gate_edit}</textarea>
+                <textarea id="gates", cols=30, rows=25,>{&model.gates.edit} </textarea>
             </div>
         },
     };
-    let program = match model.program_state {
+
+    let program = match model.program.state {
         State::Ready => html! {
-            <button class="button", onclick=move|_| Msg::EditProgram,>{"Edit Program"}</button>
+            <div>
+                <button class="button", onclick=move|_| Msg::EditProgram,>{"Edit Program"}</button>
+                <br></br>
+                <textarea disabled=true, id="program", cols=30, rows=25,>{&model.program.edit} </textarea>
+            </div>
         },
         State::Editing => html! {
             <div>
+                <div>{err(&model.program)}</div>
                 <button class="button", onclick=move|_| Msg::SaveProgram,>{"Save Program"}</button>
-                <textarea id="program", cols=30, rows=25, onkeypress=move|_| Msg::EditProgram,>{model.qvm.read_program()} </textarea>
-            </div>
-        },
-        State::Error => html! {
-            <div>
-                <div>{"ERROR!"}</div>
-                <button class="button", onclick=move|_| Msg::SaveProgram,>{"Save Program"}</button>
-                <textarea id="progam", cols=30, rows=25, onkeypress=move|_| Msg::EditProgram,>{&model.program_edit}</textarea>
+                <br></br>
+                <textarea id="program", cols=30, rows=25,>{&model.program.edit} </textarea>
             </div>
         },
     };

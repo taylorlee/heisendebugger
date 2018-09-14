@@ -1,10 +1,10 @@
 
 hdb
-    program repr in readystate
-    (apply gate to qb)
     mixed states via tensors
+    change textarea to hilight exec line
     easier gate mod
     measurement
+    refactor editor component?
 
 rust
     no lock checks
