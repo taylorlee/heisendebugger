@@ -9,7 +9,7 @@ type Complex = num_complex::Complex64;
 type Qubit = Array1<Complex>;
 type Qubyte = (Qubit, Qubit);
 
-type G1 = Array2<Complex>;
+type Gate = Array2<Complex>;
 
 #[derive(Serialize, PartialEq)]
 enum Instruction {
@@ -22,25 +22,34 @@ pub struct QVM {
     pub counter: usize,
     pub qb: Qubyte,
     program: Vec<Instruction>,
-    gates: BTreeMap<String, G1>,
+    gates: BTreeMap<String, Gate>,
 }
 
 const C0: Complex = Complex { re: 0.0, im: 0.0 };
 const C1: Complex = Complex { re: 1.0, im: 0.0 };
 const I: Complex = Complex { re: 0.0, im: 1.0 };
 
-fn x() -> G1 {
+fn x() -> Gate {
     array![[C0, C1], [C1, C0]]
 }
-fn z() -> G1 {
+fn z() -> Gate {
     array![[C1, C0], [C0, -C1]]
 }
-fn y() -> G1 {
+fn y() -> Gate {
     array![[C0, -I], [I, C0]]
 }
-fn h() -> G1 {
+fn h() -> Gate {
     let h = 1.0 / Complex { re: 2.0, im: 0.0 }.sqrt();
     array![[h, h], [h, -h]]
+}
+//TODO make this work w/ tensor state
+fn cnot() -> Gate {
+    array![
+        [C1, C0, C0, C0],
+        [C0, C1, C0, C0],
+        [C0, C0, C0, C1],
+        [C0, C0, C1, C0],
+    ]
 }
 
 fn zero() -> Qubit {
@@ -50,9 +59,21 @@ fn one() -> Qubit {
     array![C1, C0]
 }
 
-fn apply(gate: &G1, qb: &Qubit) -> Qubit {
+fn apply(gate: &Gate, qb: &Qubit) -> Qubit {
     qb.dot(gate)
 }
+
+
+//wat goin on here?
+//fn tensor_product(a: Qubit, b: Qubit) -> Qubit {
+    //Array::from_iter(
+        //a.iter().map(|ai| {
+            //b.iter().map(|bi| {
+                //ai * bi
+            //})
+        //}
+    //})
+//}
 
 impl QVM {
     pub fn new() -> QVM {
@@ -61,6 +82,7 @@ impl QVM {
         map.insert("y".into(), y());
         map.insert("z".into(), z());
         map.insert("h".into(), h());
+        map.insert("cnot".into(), cnot());
         QVM {
             counter: 0,
             qb: (zero(), zero()),

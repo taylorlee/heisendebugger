@@ -1,5 +1,7 @@
 
 hdb
+    impl tensor product: 
+        |0> x |0> -> |00>
     mixed states via tensors
     change textarea to hilight exec line
     easier gate mod
