@@ -113,11 +113,11 @@ impl QVM {
             }
         }).collect::<Vec<Instruction>>();
         if prog.contains(&Instruction::Malformed) {
-            return false
+            false
         } else {
             self.program = prog;
-            return true
-        };
+            true
+        }
     }
     pub fn set_gates(&mut self, gates: &str) -> bool {
         match serde_json::from_str(gates) {

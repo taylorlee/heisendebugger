@@ -4,7 +4,7 @@
 
 #[macro_use]
 extern crate yew;
-extern crate num_complex;
+xtern crate num_complex;
 extern crate serde;
 extern crate serde_json;
 extern crate stdweb;
@@ -30,7 +30,7 @@ enum State {
     Editing,
 }
 
-
+#[derive(Clone, Copy)]
 pub enum Msg {
     Noop,
     Reset,
