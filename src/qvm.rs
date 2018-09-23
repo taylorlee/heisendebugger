@@ -3,13 +3,18 @@ use serde_json;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::iter::FromIterator;
-use ndarray::prelude::*;
 
 type Complex = num_complex::Complex64;
-type Qubit = Array1<Complex>;
-type Qubyte = (Qubit, Qubit);
 
-type Gate = Array2<Complex>;
+const N_QUBITS: usize = 2;
+const Q_STATE_SIZE: usize = N_QUBITS*2;
+
+type Q1 = [Complex; 2];
+type Q2 = [Complex; 2*2];
+type Qstate = Q2;
+type G1 = [Q1; 2];
+type G2 = [Q2; 2*2];
+type Gate = G2;
 
 #[derive(Serialize, PartialEq)]
 enum Instruction {
@@ -20,31 +25,38 @@ enum Instruction {
 
 pub struct QVM {
     pub counter: usize,
-    pub qb: Qubyte,
+    pub state: Qstate,
     program: Vec<Instruction>,
-    gates: BTreeMap<String, Gate>,
+    gates: BTreeMap<String, G1>,
+    gates2: BTreeMap<String, G2>,
 }
 
 const C0: Complex = Complex { re: 0.0, im: 0.0 };
 const C1: Complex = Complex { re: 1.0, im: 0.0 };
-const I: Complex = Complex { re: 0.0, im: 1.0 };
+//const I: Complex = Complex { re: 0.0, im: 1.0 };
 
-fn x() -> Gate {
-    array![[C0, C1], [C1, C0]]
+fn x() -> G1 {
+    [[C0, C1], [C1, C0]]
 }
-fn z() -> Gate {
-    array![[C1, C0], [C0, -C1]]
+//fn z() -> Gate {
+    //[[C1, C0], [C0, -C1]]
+//}
+//fn y() -> Gate {
+    //[[C0, -I], [I, C0]]
+//}
+//fn h() -> Gate {
+    //let h = 1.0 / Complex { re: 2.0, im: 0.0 }.sqrt();
+    //[[h, h], [h, -h]]
+//}
+//
+fn i() -> G1 {
+    [
+        [C1, C0],
+        [C0, C1],
+    ]
 }
-fn y() -> Gate {
-    array![[C0, -I], [I, C0]]
-}
-fn h() -> Gate {
-    let h = 1.0 / Complex { re: 2.0, im: 0.0 }.sqrt();
-    array![[h, h], [h, -h]]
-}
-//TODO make this work w/ tensor state
 fn cnot() -> Gate {
-    array![
+    [
         [C1, C0, C0, C0],
         [C0, C1, C0, C0],
         [C0, C0, C0, C1],
@@ -52,47 +64,59 @@ fn cnot() -> Gate {
     ]
 }
 
-fn zero() -> Qubit {
-    array![C1, C0]
-}
-fn one() -> Qubit {
-    array![C1, C0]
+fn zero() -> Qstate {
+    [C1, C0, C0, C0]
 }
 
-fn apply(gate: &Gate, qb: &Qubit) -> Qubit {
-    qb.dot(gate)
+fn dot_product(gate: &Gate, state: &Qstate) -> Qstate {
+    let mut ret = [C0; Q_STATE_SIZE];
+    for (i, row) in gate.iter().enumerate() {
+        for (j, item) in row.iter().enumerate() {
+            ret[i] += item * state[j];
+        }
+    }
+    ret
+
 }
+fn lift(a: &G1, b: &G1) -> G2 {
+    let mut ret = [[C0; Q_STATE_SIZE]; Q_STATE_SIZE];
+    for (a_i, a_row) in a.iter().enumerate() {
+        for (a_j, a_item) in a_row.iter().enumerate() {
+            for (b_i, b_row) in b.iter().enumerate() {
+                for (b_j, b_item) in b_row.iter().enumerate() {
+                    let rdx = a_i * N_QUBITS + b_i;
+                    let cdx = a_j * N_QUBITS + b_j;
+                    ret[rdx][cdx] = a_item * b_item;
+                }
+            }
 
-
-//wat goin on here?
-//fn tensor_product(a: Qubit, b: Qubit) -> Qubit {
-    //Array::from_iter(
-        //a.iter().map(|ai| {
-            //b.iter().map(|bi| {
-                //ai * bi
-            //})
-        //}
-    //})
-//}
+        }
+    }
+    ret
+}
 
 impl QVM {
     pub fn new() -> QVM {
         let mut map = BTreeMap::new();
+        let mut map2 = BTreeMap::new();
         map.insert("x".into(), x());
-        map.insert("y".into(), y());
-        map.insert("z".into(), z());
-        map.insert("h".into(), h());
-        map.insert("cnot".into(), cnot());
+        //map.insert("x0".into(), x0());
+        //map.insert("x1".into(), x1());
+        //map.insert("y".into(), y());
+        //map.insert("z".into(), z());
+        //map.insert("h".into(), h());
+        map2.insert("cnot".into(), cnot());
         QVM {
             counter: 0,
-            qb: (zero(), zero()),
+            state : zero(),
             program: vec![],
             gates: map,
+            gates2: map2,
         }
     }
     pub fn reset(&mut self) {
         self.counter = 0;
-        self.qb = (zero(), zero());
+        self.state = zero();
     }
     pub fn read_program(&self) -> String {
         String::from_iter(self.program.iter().map(|inst| {
@@ -136,12 +160,16 @@ impl QVM {
     fn operate(&mut self) {
         if let Instruction::Single(gate, qb) = &self.program[self.counter] {
             let gate = &self.gates[gate];
-            let qb = match qb.as_str() {
-                "0" => (apply(&gate, &self.qb.0), self.qb.1.clone()),
-                "1" => (self.qb.0.clone(), apply(&gate, &self.qb.1)),
+            let i = &i();
+            let lifted = match qb.as_str() {
+                "0" => lift(gate, i),
+                "1" => lift(i, gate),
                 _ => panic!("bad target {}", qb),
             };
-            self.qb = qb;
+            self.state = dot_product(&lifted, &self.state);
+        } else if let Instruction::Double(gate, _qb0, _qb1) = &self.program[self.counter] {
+            let gate = &self.gates2[gate];
+            self.state = dot_product(gate, &self.state);
         }
     }
     pub fn prev(&mut self) {
@@ -160,6 +188,6 @@ impl QVM {
 
 impl fmt::Display for QVM {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[{}, {}]", self.qb.0, self.qb.1)
+        write!(f, "[{:?}]", self.state)
     }
 }

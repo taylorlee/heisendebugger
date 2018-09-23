@@ -10,7 +10,5 @@ hdb
 
 rust
     no lock checks
-    racer completion
     html tag checks static
     faster build
-    wasm target working

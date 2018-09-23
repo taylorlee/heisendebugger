@@ -4,7 +4,7 @@
 
 #[macro_use]
 extern crate yew;
-xtern crate num_complex;
+extern crate num_complex;
 extern crate serde;
 extern crate serde_json;
 extern crate stdweb;
@@ -12,8 +12,8 @@ extern crate stdweb;
 #[macro_use]
 extern crate serde_derive;
 
-#[macro_use]
-extern crate ndarray;
+//#[macro_use]
+//extern crate ndarray;
 
 mod qvm;
 
@@ -188,3 +188,4 @@ fn view(model: &Model) -> Html<Msg> {
         </div>
     }
 }
+
