@@ -203,9 +203,3 @@ impl QVM {
         }
     }
 }
-
-impl fmt::Display for QVM {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[{:?}]", self.state)
-    }
-}

@@ -42,6 +42,9 @@ pub enum Msg {
 
     EditGates,
     SaveGates,
+
+    Bell,
+    XYZ,
 }
 
 struct Context {}
@@ -69,12 +72,7 @@ fn main() {
         },
         program: Editor {
             state: State::Ready,
-            edit: "
-cnot 0 1
-cnot 0 1
-cnot 1 0
-cnot 1 0
-".to_string(),
+            edit: "h 0\ncnot 0 1".to_string(),
             error: false,
         },
     };
@@ -92,12 +90,31 @@ fn get_text(id: &str) -> String {
         .unwrap();
     input.value()
 }
+fn reset_prog(model: &mut Model, prog: String) {
+    model.qvm.update(&prog);
+    model.program.edit = prog;
+}
 fn update(_: &mut Context, model: &mut Model, msg: Msg) {
     match msg {
         Msg::Noop => {}
         Msg::Reset => {
             model.qvm.reset();
         }
+        Msg::Bell => {
+            reset_prog(model, "h 0\ncnot 0 1".to_string());
+        }
+        Msg::XYZ => {
+            reset_prog(model, "x 0
+y 0
+z 0
+x 1
+y 1
+z 1
+h 0
+h 1
+".to_string());
+        }
+
         Msg::EditGates => {
             model.gates.state = State::Editing;
         }
@@ -175,10 +192,15 @@ fn view(model: &Model) -> Html<Msg> {
         },
     };
 
-
     html! {
         <div>
             <section class="section",>
+            <select>
+                <option onclick=move|_| Msg::Bell,>{"Bell"}</option>
+                <option onclick=move|_| Msg::XYZ,>{"XYZ"}</option>
+            </select>
+
+                <br></br>
                 { gates }
                 <br></br>
                 { program }
@@ -187,7 +209,17 @@ fn view(model: &Model) -> Html<Msg> {
                 <button class="button", onclick=move|_| Msg::Next,>{ "Next" }</button>
                 <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
                 <br></br>
-                <span class=("tag","is-primary"),> { &model.qvm } </span>
+                <span class=("tag","is-primary"),>
+                    {"Quantum State: "}
+                    <br></br>
+                     {"|00> "}{ &model.qvm.state[0] }
+                    <br></br>
+                     {"|01> "}{ &model.qvm.state[1] }
+                    <br></br>
+                     {"|10> "}{ &model.qvm.state[2] }
+                    <br></br>
+                     {"|11> "}{ &model.qvm.state[3] }
+                </span>
                 <br></br>
             </section>
         </div>
