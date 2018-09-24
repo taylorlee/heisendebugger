@@ -33,22 +33,22 @@ pub struct QVM {
 
 const C0: Complex = Complex { re: 0.0, im: 0.0 };
 const C1: Complex = Complex { re: 1.0, im: 0.0 };
-//const I: Complex = Complex { re: 0.0, im: 1.0 };
+const I: Complex = Complex { re: 0.0, im: 1.0 };
 
 fn x() -> G1 {
     [[C0, C1], [C1, C0]]
 }
-//fn z() -> Gate {
-    //[[C1, C0], [C0, -C1]]
-//}
-//fn y() -> Gate {
-    //[[C0, -I], [I, C0]]
-//}
-//fn h() -> Gate {
-    //let h = 1.0 / Complex { re: 2.0, im: 0.0 }.sqrt();
-    //[[h, h], [h, -h]]
-//}
-//
+fn z() -> G1 {
+    [[C1, C0], [C0, -C1]]
+}
+fn y() -> G1 {
+    [[C0, -I], [I, C0]]
+}
+fn h() -> G1 {
+    let h = 1.0 / Complex { re: 2.0, im: 0.0 }.sqrt();
+    [[h, h], [h, -h]]
+}
+
 fn i() -> G1 {
     [
         [C1, C0],
@@ -61,6 +61,15 @@ fn cnot() -> Gate {
         [C0, C1, C0, C0],
         [C0, C0, C0, C1],
         [C0, C0, C1, C0],
+    ]
+}
+
+fn swap () -> Gate {
+    [
+        [C1, C0, C0, C0],
+        [C0, C0, C1, C0],
+        [C0, C1, C0, C0],
+        [C0, C0, C0, C1],
     ]
 }
 
@@ -100,11 +109,9 @@ impl QVM {
         let mut map = BTreeMap::new();
         let mut map2 = BTreeMap::new();
         map.insert("x".into(), x());
-        //map.insert("x0".into(), x0());
-        //map.insert("x1".into(), x1());
-        //map.insert("y".into(), y());
-        //map.insert("z".into(), z());
-        //map.insert("h".into(), h());
+        map.insert("y".into(), y());
+        map.insert("z".into(), z());
+        map.insert("h".into(), h());
         map2.insert("cnot".into(), cnot());
         QVM {
             counter: 0,
@@ -167,9 +174,20 @@ impl QVM {
                 _ => panic!("bad target {}", qb),
             };
             self.state = dot_product(&lifted, &self.state);
-        } else if let Instruction::Double(gate, _qb0, _qb1) = &self.program[self.counter] {
+        } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
             let gate = &self.gates2[gate];
-            self.state = dot_product(gate, &self.state);
+            match (qb0.as_str(), qb1.as_str()) {
+                ("0","1") => {
+                    self.state = dot_product(gate, &self.state);
+                },
+                ("1","0") => {
+                    let swapper = swap();
+                    self.state = dot_product(&swapper, &self.state);
+                    self.state = dot_product(gate, &self.state);
+                    self.state = dot_product(&swapper, &self.state);
+                },
+                _ => panic!("bad qbits: {} {}", qb0, qb1)
+            }
         }
     }
     pub fn prev(&mut self) {

@@ -69,7 +69,12 @@ fn main() {
         },
         program: Editor {
             state: State::Ready,
-            edit: "h 0\nx 0\n".to_string(),
+            edit: "
+cnot 0 1
+cnot 0 1
+cnot 1 0
+cnot 1 0
+".to_string(),
             error: false,
         },
     };
