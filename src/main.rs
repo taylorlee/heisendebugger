@@ -93,6 +93,7 @@ fn get_text(id: &str) -> String {
 fn reset_prog(model: &mut Model, prog: String) {
     model.qvm.update(&prog);
     model.program.edit = prog;
+    model.qvm.reset();
 }
 fn update(_: &mut Context, model: &mut Model, msg: Msg) {
     match msg {
@@ -191,7 +192,18 @@ fn view(model: &Model) -> Html<Msg> {
             </div>
         },
     };
-
+    let tensors = [
+        "00",
+        "01",
+        "10",
+        "11",
+    ];
+    let coeff = |n| html! {
+        <span>
+            <br></br>
+            {format!("|{}> {}", &tensors[n], &model.qvm.state[n])}
+        </span>
+    };
     html! {
         <div>
             <section class="section",>
@@ -211,14 +223,7 @@ fn view(model: &Model) -> Html<Msg> {
                 <br></br>
                 <span class=("tag","is-primary"),>
                     {"Quantum State: "}
-                    <br></br>
-                     {"|00> "}{ &model.qvm.state[0] }
-                    <br></br>
-                     {"|01> "}{ &model.qvm.state[1] }
-                    <br></br>
-                     {"|10> "}{ &model.qvm.state[2] }
-                    <br></br>
-                     {"|11> "}{ &model.qvm.state[3] }
+                    { for (0..model.qvm.state.len()).map(coeff) } 
                 </span>
                 <br></br>
             </section>
