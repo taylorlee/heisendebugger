@@ -105,7 +105,9 @@ fn update(_: &mut Context, model: &mut Model, msg: Msg) {
             reset_prog(model, "h 0\ncnot 0 1".to_string());
         }
         Msg::XYZ => {
-            reset_prog(model, "x 0
+            reset_prog(
+                model,
+                "x 0
 y 0
 z 0
 x 1
@@ -113,7 +115,8 @@ y 1
 z 1
 h 0
 h 1
-".to_string());
+".to_string(),
+            );
         }
 
         Msg::EditGates => {
@@ -157,11 +160,7 @@ h 1
     }
 }
 fn view(model: &Model) -> Html<Msg> {
-    let err = |editor: &Editor| if editor.error {
-        "ERROR!"
-    } else {
-        ""
-    };
+    let err = |editor: &Editor| if editor.error { "ERROR!" } else { "" };
     let gates = match model.gates.state {
         State::Ready => html! {
             <button class="button", onclick=move|_| Msg::EditGates,>{"Edit Gates"}</button>
@@ -192,17 +191,14 @@ fn view(model: &Model) -> Html<Msg> {
             </div>
         },
     };
-    let tensors = [
-        "00",
-        "01",
-        "10",
-        "11",
-    ];
-    let coeff = |n| html! {
-        <span>
-            <br></br>
-            {format!("|{}> {}", &tensors[n], &model.qvm.state[n])}
-        </span>
+    let tensors = ["00", "01", "10", "11"];
+    let coeff = |n| {
+        html! {
+            <span>
+                <br></br>
+                {format!("|{}> {}", &tensors[n], &model.qvm.state[n])}
+            </span>
+        }
     };
     html! {
         <div>
@@ -223,11 +219,10 @@ fn view(model: &Model) -> Html<Msg> {
                 <br></br>
                 <span class=("tag","is-primary"),>
                     {"Quantum State: "}
-                    { for (0..model.qvm.state.len()).map(coeff) } 
+                    { for (0..model.qvm.state.len()).map(coeff) }
                 </span>
                 <br></br>
             </section>
         </div>
     }
 }
-

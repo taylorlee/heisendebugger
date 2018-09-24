@@ -1,5 +1,8 @@
 
 hdb
+    impl dot & tensor product for A1 and A2
+    generics to get to qstate 3
+
     change textarea to hilight exec line
     easier gate mod
     measurement
