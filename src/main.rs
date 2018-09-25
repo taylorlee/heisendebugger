@@ -12,9 +12,6 @@ extern crate stdweb;
 #[macro_use]
 extern crate serde_derive;
 
-//#[macro_use]
-//extern crate ndarray;
-
 mod qvm;
 
 use yew::html::{App, Html};
@@ -191,13 +188,24 @@ fn view(model: &Model) -> Html<Msg> {
             </div>
         },
     };
-    let tensors = ["00", "01", "10", "11"];
+    let tensors = [
+        "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001", "1010",
+        "1011", "1100", "1101", "1110", "1111",
+    ];
     let coeff = |n| {
-        html! {
-            <span>
-                <br></br>
-                {format!("|{}> {}", &tensors[n], &model.qvm.state[n])}
-            </span>
+        let value = model.qvm.state[n];
+        if qvm::is_zero(value) {
+            html! {
+                <span>
+                <span/>
+            }
+        } else {
+            html! {
+                <span>
+                    <br></br>
+                    {format!("|{}> {}", &tensors[n], value)}
+                </span>
+            }
         }
     };
     html! {

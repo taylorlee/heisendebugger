@@ -3,22 +3,30 @@ use serde_json;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::iter::FromIterator;
+use std::f64::EPSILON;
 
 type Complex = num_complex::Complex64;
 
-const N_QUBITS: usize = 3;
-const Q_STATE_SIZE: usize = 2 * 2 * 2;
+pub fn is_zero(c: Complex) -> bool {
+    c.re.abs() < EPSILON && c.im.abs() < EPSILON
+}
+const N_QUBITS: usize = 4;
+const Q_STATE_SIZE: usize = 2 * 2 * 2 * 2;
 
 type Q1 = [Complex; 2];
 type Q2 = [Complex; 2 * 2];
 type Q3 = [Complex; Q_STATE_SIZE];
 type Qstate = Q3;
 
+type G1 = [Q1; 2];
+type G2 = [Q2; 2 * 2];
+type G3 = [Q3; 2 * 2 * 2 * 2];
+
 #[derive(Serialize, Deserialize)]
 enum Gate {
-    G1([Q1; 2]),
-    G2([Q2; 2 * 2]),
-    G3([Q3; Q_STATE_SIZE]),
+    A(G1),
+    B(G2),
+    C(G3),
 }
 
 #[derive(Serialize, PartialEq)]
@@ -35,36 +43,44 @@ pub struct QVM {
     gates: BTreeMap<String, Gate>,
 }
 
-const C0: Complex = Complex { re: 0.0, im: 0.0 };
-const C1: Complex = Complex { re: 1.0, im: 0.0 };
-const I: Complex = Complex { re: 0.0, im: 1.0 };
+pub const C0: Complex = Complex { re: 0.0, im: 0.0 };
+pub const C1: Complex = Complex { re: 1.0, im: 0.0 };
+const CI: Complex = Complex { re: 0.0, im: 1.0 };
+
+const I1: G1 = [[C1, C0], [C0, C1]];
+const I2: G2 = [
+    [C1, C0, C0, C0],
+    [C0, C0, C1, C0],
+    [C0, C1, C0, C0],
+    [C0, C0, C0, C1],
+];
+const SWAP: G2 = [
+    [C1, C0, C0, C0],
+    [C0, C0, C1, C0],
+    [C0, C1, C0, C0],
+    [C0, C0, C0, C1],
+];
 
 fn standard_gates() -> BTreeMap<String, Gate> {
     let mut map = BTreeMap::new();
-    map.insert("x".to_string(), Gate::G1([[C0, C1], [C1, C0]]));
-    map.insert("z".into(), Gate::G1([[C1, C0], [C0, -C1]]));
-    map.insert("y".into(), Gate::G1([[C0, -I], [I, C0]]));
+    map.insert("x".to_string(), Gate::A([[C0, C1], [C1, C0]]));
+    map.insert("z".into(), Gate::A([[C1, C0], [C0, -C1]]));
+    map.insert("y".into(), Gate::A([[C0, -CI], [CI, C0]]));
+
     let h = 1.0 / Complex { re: 2.0, im: 0.0 }.sqrt();
-    map.insert("h".into(), Gate::G1([[h, h], [h, -h]]));
-    map.insert("i".into(), Gate::G1([[C1, C0], [C0, C1]]));
+    map.insert("h".into(), Gate::A([[h, h], [h, -h]]));
+    map.insert("i1".into(), Gate::A(I1));
+    map.insert("i2".into(), Gate::B(I2));
     map.insert(
         "cnot".into(),
-        Gate::G2([
+        Gate::B([
             [C1, C0, C0, C0],
             [C0, C1, C0, C0],
             [C0, C0, C0, C1],
             [C0, C0, C1, C0],
         ]),
     );
-    map.insert(
-        "swap".into(),
-        Gate::G2([
-            [C1, C0, C0, C0],
-            [C0, C0, C1, C0],
-            [C0, C1, C0, C0],
-            [C0, C0, C0, C1],
-        ]),
-    );
+    map.insert("swap".into(), Gate::B(SWAP));
     map
 }
 fn zero() -> Qstate {
@@ -73,36 +89,53 @@ fn zero() -> Qstate {
     ret
 }
 
-fn dot_product(gate: &Gate, state: &Qstate) -> Qstate {
+fn dot_product(gate: &G3, state: &Qstate) -> Qstate {
     let mut ret = [C0; Q_STATE_SIZE];
-    if let Gate::G2(gate) = gate {
-        for (i, row) in gate.iter().enumerate() {
-            for (j, item) in row.iter().enumerate() {
-                ret[i] += item * state[j];
-            }
+    for (i, row) in gate.iter().enumerate() {
+        for (j, item) in row.iter().enumerate() {
+            ret[i] += item * state[j];
         }
     }
     ret
 }
 
-fn tensor_product(a: &Gate, b: &Gate) -> Gate {
-    let mut ret = [[C0; Q_STATE_SIZE]; Q_STATE_SIZE];
-    if let (Gate::G1(a), Gate::G1(b)) = (a, b) {
-        for (a_i, a_row) in a.iter().enumerate() {
-            for (a_j, a_item) in a_row.iter().enumerate() {
-                for (b_i, b_row) in b.iter().enumerate() {
-                    for (b_j, b_item) in b_row.iter().enumerate() {
-                        let rdx = a_i * N_QUBITS + b_i;
-                        let cdx = a_j * N_QUBITS + b_j;
-                        ret[rdx][cdx] = a_item * b_item;
-                    }
+fn tp1(a: &G1, b: &G1) -> G2 {
+    let mut ret = [[C0; 4]; 4];
+    for (a_i, a_row) in a.iter().enumerate() {
+        for (a_j, a_item) in a_row.iter().enumerate() {
+            for (b_i, b_row) in b.iter().enumerate() {
+                for (b_j, b_item) in b_row.iter().enumerate() {
+                    let rdx = a_i * 2 + b_i;
+                    let cdx = a_j * 2 + b_j;
+                    ret[rdx][cdx] = a_item * b_item;
                 }
             }
         }
     }
-    Gate::G3(ret)
+    ret
+}
+fn tp2(a: &G2, b: &G2) -> G3 {
+    let mut ret = [[C0; Q_STATE_SIZE]; Q_STATE_SIZE];
+    for (a_i, a_row) in a.iter().enumerate() {
+        for (a_j, a_item) in a_row.iter().enumerate() {
+            for (b_i, b_row) in b.iter().enumerate() {
+                for (b_j, b_item) in b_row.iter().enumerate() {
+                    let rdx = a_i * N_QUBITS + b_i;
+                    let cdx = a_j * N_QUBITS + b_j;
+                    ret[rdx][cdx] = a_item * b_item;
+                }
+            }
+        }
+    }
+    ret
+}
+fn tp(a: &G1, b: &G1, c: &G1, d: &G1) -> G3 {
+    tp2(&tp1(a, b), &tp1(c, d))
 }
 
+fn lift(a: &G2) -> G3 {
+    tp2(a, &I2)
+}
 impl QVM {
     pub fn new() -> QVM {
         QVM {
@@ -155,27 +188,30 @@ impl QVM {
     }
     fn operate(&mut self) {
         if let Instruction::Single(gate, qb) = &self.program[self.counter] {
-            let gate = &self.gates[gate];
-            let i = &self.gates["i"];
-            let lifted = match qb.as_str() {
-                "0" => tensor_product(gate, i),
-                "1" => tensor_product(i, gate),
-                _ => panic!("bad target {}", qb),
-            };
-            self.state = dot_product(&lifted, &self.state);
+            if let Gate::A(gate) = &self.gates[gate] {
+                let lifted = match qb.as_str() {
+                    "0" => tp(&I1, &I1, &I1, gate),
+                    "1" => tp(&I1, &I1, gate, &I1),
+                    "2" => tp(&I1, gate, &I1, &I1),
+                    "3" => tp(gate, &I1, &I1, &I1),
+                    _ => panic!("bad target {}", qb),
+                };
+                self.state = dot_product(&lifted, &self.state);
+            }
         } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
-            let gate = &self.gates[gate];
-            match (qb0.as_str(), qb1.as_str()) {
-                ("0", "1") => {
-                    self.state = dot_product(gate, &self.state);
+            if let Gate::B(gate) = &self.gates[gate] {
+                match (qb0.as_str(), qb1.as_str()) {
+                    ("0", "1") => {
+                        self.state = dot_product(&lift(gate), &self.state);
+                    }
+                    ("1", "0") => {
+                        let swapper = &lift(&SWAP);
+                        self.state = dot_product(swapper, &self.state);
+                        self.state = dot_product(&lift(gate), &self.state);
+                        self.state = dot_product(swapper, &self.state);
+                    }
+                    _ => panic!("bad qbits: {} {}", qb0, qb1),
                 }
-                ("1", "0") => {
-                    let swapper = &self.gates["swap"];
-                    self.state = dot_product(swapper, &self.state);
-                    self.state = dot_product(gate, &self.state);
-                    self.state = dot_product(swapper, &self.state);
-                }
-                _ => panic!("bad qbits: {} {}", qb0, qb1),
             }
         }
     }
