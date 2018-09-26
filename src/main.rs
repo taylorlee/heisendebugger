@@ -1,6 +1,7 @@
 #![recursion_limit = "256"] // needed for html! macro expansion
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(manual_memcpy)]
 
 #[macro_use]
 extern crate yew;
@@ -72,7 +73,10 @@ fn main() {
         },
         program: Editor {
             state: State::Ready,
-            edit: "h 0\ncnot 0 1".to_string(),
+            edit: "x 0
+cnot 0 1
+x 3
+swap 2 3".to_string(),
             error: false,
         },
     };
