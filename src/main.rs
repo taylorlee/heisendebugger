@@ -61,7 +61,31 @@ pub struct Model {
     program: Editor,
 }
 
+fn test() {
+    let mut qvm = qvm::QVM::new();
+    let edit = "x 0
+cnot 0 1
+cnot 1 2
+cnot 2 1
+swap 2 1
+cnot 1 0
+x 1
+".to_string();
+    qvm.update(&edit);
+    loop {
+        print!("{:#?}", qvm.state.iter().enumerate().map(|(i,elem)| fmt_tensor(*elem, i)).collect::<Vec<String>>());
+        if qvm.counter == qvm.program.len() {
+            break;
+        }
+        qvm.next();
+    }
+    //print!("{:#?}", qvm.state.iter().enumerate().map(|(i,elem)| fmt_tensor(*elem, i)).collect::<Vec<String>>());
+}
+
 fn main() {
+    test()
+}
+fn foo() {
     initialize();
     let mut app = App::new();
     let mut model = Model {
@@ -179,6 +203,18 @@ h 1
         }
     }
 }
+fn fmt_tensor(value: num_complex::Complex64, n: usize) -> String {
+    if qvm::is_zero(value) {
+        "".into()
+    } else {
+        let tensors = [
+            "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", 
+            //"1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111",
+        ];
+        format!("|{}> {}", &tensors[n], value)
+    }
+}
+
 fn view(model: &Model) -> Html<Msg> {
     let err = |editor: &Editor| if editor.error { "ERROR!" } else { "" };
     let gates = match model.gates.state {
@@ -211,10 +247,7 @@ fn view(model: &Model) -> Html<Msg> {
             </div>
         },
     };
-    let tensors = [
-        "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001", "1010",
-        "1011", "1100", "1101", "1110", "1111",
-    ];
+
     let coeff = |n| {
         let value = model.qvm.state[n];
         if qvm::is_zero(value) {
@@ -226,7 +259,7 @@ fn view(model: &Model) -> Html<Msg> {
             html! {
                 <span>
                     <br></br>
-                    {format!("|{}> {}", &tensors[n], value)}
+                    { fmt_tensor(value, n) }
                 </span>
             }
         }

@@ -10,25 +10,35 @@ type Complex = num_complex::Complex64;
 pub fn is_zero(c: Complex) -> bool {
     c.re.abs() < EPSILON && c.im.abs() < EPSILON
 }
-const N_QUBITS: usize = 4;
 
-type Q1 = [Complex; 2];
-type Q2 = [Complex; 2 * 2];
-type Q3 = [Complex; 2 * 2 * 2];
-type Q4 = [Complex; 2 * 2 * 2 * 2];
-type Qstate = Q4;
+const S1: usize = 2;
+const S2: usize = 2 * 2;
+const S3: usize = 2 * 2 * 2;
+const S4: usize = 2 * 2 * 2 * 2;
 
-type G1 = [Q1; 2];
-type G2 = [Q2; 2 * 2];
-type G3 = [Q3; 2 * 2 * 2];
-type G4 = [Q4; 2 * 2 * 2 * 2];
-const Q_STATE_SIZE: usize = 16;
+type Q1 = [Complex; S1];
+type Q2 = [Complex; S2];
+type Q3 = [Complex; S3];
+type Q4 = [Complex; S4];
+
+
+type Qstate = Q3;
+
+type G1 = [Q1; S1];
+type G2 = [Q2; S2];
+type G3 = [Q3; S3];
+type G4 = [Q4; S4];
 
 #[derive(Serialize, Deserialize)]
 enum Gate {
     A(Box<G1>),
     B(Box<G2>),
     C(Box<G4>),
+}
+
+struct UGate {
+    size: usize,
+    data: Gate,
 }
 
 #[derive(Serialize, PartialEq)]
@@ -46,12 +56,12 @@ pub struct QVM {
 }
 
 trait Mut {
-    fn apply(&mut self, _gate: &G4) {
+    fn apply(&mut self, _gate: &G3) {
     }
 }
 
 impl Mut for Qstate {
-    fn apply(&mut self, gate: &G4) {
+    fn apply(&mut self, gate: &G3) {
         let new_state = dot_product(&gate, &self);
         for i in 0..self.len() {
             self[i] = new_state[i];
@@ -100,13 +110,13 @@ fn standard_gates() -> BTreeMap<String, Gate> {
     map
 }
 fn zero() -> Qstate {
-    let mut ret = [C0; Q_STATE_SIZE];
+    let mut ret = [C0; S3];
     ret[0] = C1;
     ret
 }
 
-fn dot_product(gate: &G4, state: &Qstate) -> Qstate {
-    let mut ret = [C0; Q_STATE_SIZE];
+fn dot_product(gate: &G3, state: &Qstate) -> Qstate {
+    let mut ret = [C0; S3];
     for (i, row) in gate.iter().enumerate() {
         for (j, item) in row.iter().enumerate() {
             ret[i] += item * state[j];
@@ -116,13 +126,14 @@ fn dot_product(gate: &G4, state: &Qstate) -> Qstate {
 }
 
 fn tp11(a: &G1, b: &G1) -> G2 {
-    let mut ret = [[C0; 4]; 4];
+    let nq = 2;
+    let mut ret = [[C0; S2]; S2];
     for (a_i, a_row) in a.iter().enumerate() {
         for (a_j, a_item) in a_row.iter().enumerate() {
             for (b_i, b_row) in b.iter().enumerate() {
                 for (b_j, b_item) in b_row.iter().enumerate() {
-                    let rdx = a_i * 2 + b_i;
-                    let cdx = a_j * 2 + b_j;
+                    let rdx = a_i * nq + b_i;
+                    let cdx = a_j * nq + b_j;
                     ret[rdx][cdx] = a_item * b_item;
                 }
             }
@@ -131,17 +142,14 @@ fn tp11(a: &G1, b: &G1) -> G2 {
     ret
 }
 fn tp21(a: &G2, b: &G1) -> G3 {
-    let ret = [[C0; 8]; 8];
-    ret
-}
-fn tp22(a: &G2, b: &G2) -> G4 {
-    let mut ret = [[C0; Q_STATE_SIZE]; Q_STATE_SIZE];
+    let nq = 2;
+    let mut ret = [[C0; S3]; S3];
     for (a_i, a_row) in a.iter().enumerate() {
         for (a_j, a_item) in a_row.iter().enumerate() {
             for (b_i, b_row) in b.iter().enumerate() {
                 for (b_j, b_item) in b_row.iter().enumerate() {
-                    let rdx = a_i * N_QUBITS + b_i;
-                    let cdx = a_j * N_QUBITS + b_j;
+                    let rdx = a_i * nq + b_i;
+                    let cdx = a_j * nq + b_j;
                     ret[rdx][cdx] = a_item * b_item;
                 }
             }
@@ -149,20 +157,71 @@ fn tp22(a: &G2, b: &G2) -> G4 {
     }
     ret
 }
-fn tp(a: &G1, b: &G1, c: &G1, d: &G1) -> G4 {
-    tp22(&tp11(a, b), &tp11(c, d))
+fn tp12(a: &G1, b: &G2) -> G3 {
+    let nq = 4;
+    let mut ret = [[C0; S3]; S3];
+    for (a_i, a_row) in a.iter().enumerate() {
+        for (a_j, a_item) in a_row.iter().enumerate() {
+            for (b_i, b_row) in b.iter().enumerate() {
+                for (b_j, b_item) in b_row.iter().enumerate() {
+                    let rdx = a_i * nq + b_i;
+                    let cdx = a_j * nq + b_j;
+                    ret[rdx][cdx] = a_item * b_item;
+                }
+            }
+        }
+    }
+    ret
+}
+fn tp13(a: &G1, b: &G3) -> G4 {
+    let nq = 2;
+    let mut ret = [[C0; S4]; S4];
+    for (a_i, a_row) in a.iter().enumerate() {
+        for (a_j, a_item) in a_row.iter().enumerate() {
+            for (b_i, b_row) in b.iter().enumerate() {
+                for (b_j, b_item) in b_row.iter().enumerate() {
+                    let rdx = a_i * nq + b_i;
+                    let cdx = a_j * nq + b_j;
+                    ret[rdx][cdx] = a_item * b_item;
+                }
+            }
+        }
+    }
+    ret
+}
+fn tp22(a: &G2, b: &G2) -> G4 {
+    let nq = 4;
+    let mut ret = [[C0; S4]; S4];
+    for (a_i, a_row) in a.iter().enumerate() {
+        for (a_j, a_item) in a_row.iter().enumerate() {
+            for (b_i, b_row) in b.iter().enumerate() {
+                for (b_j, b_item) in b_row.iter().enumerate() {
+                    let rdx = a_i * nq + b_i;
+                    let cdx = a_j * nq + b_j;
+                    ret[rdx][cdx] = a_item * b_item;
+                }
+            }
+        }
+    }
+    ret
+}
+fn tp(a: &G1, b: &G1, c: &G1) -> G3 {
+    tp21(&tp11(a, b), c)
 }
 
-fn g01(g: &G2) -> G4 {
-    tp22(&I2, g)
+fn g01(g: &G2) -> G3 {
+    tp12(&I1, g)
 }
-fn g12(g: &G2) -> G4 {
-    //TODO:
-    tp22(&I2, g)
+fn g12(g: &G2) -> G3 {
+    let g3 = tp21(g, &I1);
+    //let arr2: Vec<Vec<f64>> = g3.iter().map(|row| row.iter().map(|elem| elem.re).collect()).collect();
+    //println!("\n{:?}", arr2);
+    g3
+
 }
-fn g23(g: &G2) -> G4 {
-    tp22(g,&I2)
-}
+//fn g23(g: &G2) -> G4 {
+    //tp22(g,&I2)
+//}
 impl QVM {
     pub fn new() -> QVM {
         QVM {
@@ -217,10 +276,10 @@ impl QVM {
         if let Instruction::Single(gate, qb) = &self.program[self.counter] {
             if let Gate::A(gate) = &self.gates[gate] {
                 let lifted = match qb.as_str() {
-                    "0" => tp(&I1, &I1, &I1, gate),
-                    "1" => tp(&I1, &I1, gate, &I1),
-                    "2" => tp(&I1, gate, &I1, &I1),
-                    "3" => tp(gate, &I1, &I1, &I1),
+                    "0" => tp(&I1, &I1, gate),
+                    "1" => tp(&I1, gate, &I1),
+                    "2" => tp(gate, &I1, &I1),
+                    //"3" => tp(gate, &I1, &I1, &I1),
                     _ => panic!("bad target {}", qb),
                 };
                 self.state.apply(&lifted);
@@ -228,7 +287,7 @@ impl QVM {
         } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
             if let Gate::B(gate) = &self.gates[gate] {
                 match (qb0.as_str(), qb1.as_str()) {
-                    // TODO why did it reverse from Q2?
+                    // TODO why did it reverse from Q2? FIXIT
                     ("0", "1") => {
                         let swap01 = &g01(&SWAP);
                         self.state.apply(swap01);
@@ -238,19 +297,24 @@ impl QVM {
                     ("1", "0") => {
                         self.state.apply(&g01(&gate));
                     }
-                    ("1", "2") => {
-                    }
                     ("2", "1") => {
+                        self.state.apply(&g12(&gate));
                     }
-                    ("2", "3") => {
-                        let swap23 = &g23(&SWAP);
-                        self.state.apply(swap23);
-                        self.state.apply(&g23(&gate));
-                        self.state.apply(swap23);
+                    ("1", "2") => {
+                        let swap12 = &g12(&SWAP);
+                        self.state.apply(swap12);
+                        self.state.apply(&g12(&gate));
+                        self.state.apply(swap12);
                     }
-                    ("3", "2") => {
-                        self.state.apply(&g23(&gate));
-                    }
+                    //("2", "3") => {
+                        //let swap23 = &g23(&SWAP);
+                        //self.state.apply(swap23);
+                        //self.state.apply(&g23(&gate));
+                        //self.state.apply(swap23);
+                    //}
+                    //("3", "2") => {
+                        //self.state.apply(&g23(&gate));
+                    //}
                     _ => panic!("bad qbits: {} {}", qb0, qb1),
                 }
             }
