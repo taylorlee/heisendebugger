@@ -1,14 +1,16 @@
 
 hdb
-    impl dot & tensor product for A1 and A2
-    generics to get to qstate 3
+    finish swapping for q3
+    deploy via gh pages
 
+    get to q4
     change textarea to hilight exec line
     easier gate mod
     measurement
     refactor editor component?
 
 rust
+    manual copying warning?
     no lock checks
     html tag checks static
     faster build

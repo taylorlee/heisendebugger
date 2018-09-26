@@ -31,8 +31,11 @@ enum State {
 pub enum Msg {
     Noop,
     Reset,
-    Next,
+
+    Beginning,
     Prev,
+    Next,
+    End,
 
     EditProgram,
     SaveProgram,
@@ -148,11 +151,27 @@ h 1
                 State::Editing
             };
         }
+        Msg::Beginning => {
+            loop {
+                if model.qvm.counter == 0 {
+                    break;
+                }
+                model.qvm.prev();
+            }
+        }
         Msg::Prev => {
             model.qvm.prev();
         }
         Msg::Next => {
             model.qvm.next();
+        }
+        Msg::End => {
+            loop {
+                if model.qvm.counter == model.qvm.program.len() {
+                    break;
+                }
+                model.qvm.next();
+            }
         }
     }
 }
@@ -221,8 +240,10 @@ fn view(model: &Model) -> Html<Msg> {
                 <br></br>
                 { program }
                 <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
-                <button class="button", onclick=move|_| Msg::Prev,>{ "Prev" }</button>
-                <button class="button", onclick=move|_| Msg::Next,>{ "Next" }</button>
+                <button class="button", onclick=move|_| Msg::Beginning,>{ "<<" }</button>
+                <button class="button", onclick=move|_| Msg::Prev,>{ "<" }</button>
+                <button class="button", onclick=move|_| Msg::Next,>{ ">" }</button>
+                <button class="button", onclick=move|_| Msg::End,>{ ">>" }</button>
                 <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
                 <br></br>
                 <span class=("tag","is-primary"),>

@@ -24,13 +24,13 @@ type G3 = [Q3; 2 * 2 * 2 * 2];
 
 #[derive(Serialize, Deserialize)]
 enum Gate {
-    A(G1),
-    B(G2),
-    C(G3),
+    A(Box<G1>),
+    B(Box<G2>),
+    C(Box<G3>),
 }
 
 #[derive(Serialize, PartialEq)]
-enum Instruction {
+pub enum Instruction {
     Malformed,
     Single(String, String),
     Double(String, String, String),
@@ -39,8 +39,22 @@ enum Instruction {
 pub struct QVM {
     pub counter: usize,
     pub state: Qstate,
-    program: Vec<Instruction>,
+    pub program: Vec<Instruction>,
     gates: BTreeMap<String, Gate>,
+}
+
+trait Mut {
+    fn apply(&mut self, _gate: &G3) {
+    }
+}
+
+impl Mut for Qstate {
+    fn apply(&mut self, gate: &G3) {
+        let new_state = dot_product(&gate, &self);
+        for i in 0..self.len() {
+            self[i] = new_state[i];
+        }
+    }
 }
 
 pub const C0: Complex = Complex { re: 0.0, im: 0.0 };
@@ -63,24 +77,24 @@ const SWAP: G2 = [
 
 fn standard_gates() -> BTreeMap<String, Gate> {
     let mut map = BTreeMap::new();
-    map.insert("x".to_string(), Gate::A([[C0, C1], [C1, C0]]));
-    map.insert("z".into(), Gate::A([[C1, C0], [C0, -C1]]));
-    map.insert("y".into(), Gate::A([[C0, -CI], [CI, C0]]));
+    map.insert("x".to_string(), Gate::A(Box::new([[C0, C1], [C1, C0]])));
+    map.insert("z".into(), Gate::A(Box::new([[C1, C0], [C0, -C1]])));
+    map.insert("y".into(), Gate::A(Box::new([[C0, -CI], [CI, C0]])));
 
     let h = 1.0 / Complex { re: 2.0, im: 0.0 }.sqrt();
-    map.insert("h".into(), Gate::A([[h, h], [h, -h]]));
-    map.insert("i1".into(), Gate::A(I1));
-    map.insert("i2".into(), Gate::B(I2));
+    map.insert("h".into(), Gate::A(Box::new([[h, h], [h, -h]])));
+    map.insert("i1".into(), Gate::A(Box::new(I1)));
+    map.insert("i2".into(), Gate::B(Box::new(I2)));
     map.insert(
         "cnot".into(),
-        Gate::B([
+        Gate::B(Box::new([
             [C1, C0, C0, C0],
             [C0, C1, C0, C0],
             [C0, C0, C0, C1],
             [C0, C0, C1, C0],
-        ]),
+        ])),
     );
-    map.insert("swap".into(), Gate::B(SWAP));
+    map.insert("swap".into(), Gate::B(Box::new(SWAP)));
     map
 }
 fn zero() -> Qstate {
@@ -133,9 +147,6 @@ fn tp(a: &G1, b: &G1, c: &G1, d: &G1) -> G3 {
     tp2(&tp1(a, b), &tp1(c, d))
 }
 
-fn lift(a: &G2) -> G3 {
-    tp2(a, &I2)
-}
 impl QVM {
     pub fn new() -> QVM {
         QVM {
@@ -196,19 +207,30 @@ impl QVM {
                     "3" => tp(gate, &I1, &I1, &I1),
                     _ => panic!("bad target {}", qb),
                 };
-                self.state = dot_product(&lifted, &self.state);
+                self.state.apply(&lifted);
             }
         } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
             if let Gate::B(gate) = &self.gates[gate] {
                 match (qb0.as_str(), qb1.as_str()) {
+                    // TODO why did it reverse from Q2?
                     ("0", "1") => {
-                        self.state = dot_product(&lift(gate), &self.state);
+                        let swapper = &tp2(&I2, &SWAP);
+                        self.state.apply(swapper);
+                        self.state.apply(&tp2(&I2, gate));
+                        self.state.apply(swapper);
                     }
                     ("1", "0") => {
-                        let swapper = &lift(&SWAP);
-                        self.state = dot_product(swapper, &self.state);
-                        self.state = dot_product(&lift(gate), &self.state);
-                        self.state = dot_product(swapper, &self.state);
+                        self.state.apply(&tp2(&I2, gate));
+                    }
+                    // TODO add "1", "2", etc
+                    ("2", "3") => {
+                        let swapper = &tp2(&SWAP, &I2);
+                        self.state.apply(swapper);
+                        self.state.apply(&tp2(&gate, &I2));
+                        self.state.apply(swapper);
+                    }
+                    ("3", "2") => {
+                        self.state.apply(&tp2(&gate, &I2));
                     }
                     _ => panic!("bad qbits: {} {}", qb0, qb1),
                 }
