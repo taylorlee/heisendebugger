@@ -1,7 +1,6 @@
 #![recursion_limit = "256"] // needed for html! macro expansion
 #![allow(dead_code)]
 #![allow(unused_imports)]
-#![allow(manual_memcpy)]
 
 #[macro_use]
 extern crate yew;
@@ -61,31 +60,7 @@ pub struct Model {
     program: Editor,
 }
 
-fn test() {
-    let mut qvm = qvm::QVM::new();
-    let edit = "x 0
-cnot 0 1
-cnot 1 2
-cnot 2 1
-swap 2 1
-cnot 1 0
-x 1
-".to_string();
-    qvm.update(&edit);
-    loop {
-        print!("{:#?}", qvm.state.iter().enumerate().map(|(i,elem)| fmt_tensor(*elem, i)).collect::<Vec<String>>());
-        if qvm.counter == qvm.program.len() {
-            break;
-        }
-        qvm.next();
-    }
-    //print!("{:#?}", qvm.state.iter().enumerate().map(|(i,elem)| fmt_tensor(*elem, i)).collect::<Vec<String>>());
-}
-
 fn main() {
-    test()
-}
-fn foo() {
     initialize();
     let mut app = App::new();
     let mut model = Model {
@@ -100,7 +75,8 @@ fn foo() {
             edit: "x 0
 cnot 0 1
 x 3
-swap 2 3".to_string(),
+swap 2 3"
+                .to_string(),
             error: false,
         },
     };
@@ -179,39 +155,24 @@ h 1
                 State::Editing
             };
         }
-        Msg::Beginning => {
-            loop {
-                if model.qvm.counter == 0 {
-                    break;
-                }
-                model.qvm.prev();
+        Msg::Beginning => loop {
+            if model.qvm.counter == 0 {
+                break;
             }
-        }
+            model.qvm.prev();
+        },
         Msg::Prev => {
             model.qvm.prev();
         }
         Msg::Next => {
             model.qvm.next();
         }
-        Msg::End => {
-            loop {
-                if model.qvm.counter == model.qvm.program.len() {
-                    break;
-                }
-                model.qvm.next();
+        Msg::End => loop {
+            if model.qvm.counter == model.qvm.program.len() {
+                break;
             }
-        }
-    }
-}
-fn fmt_tensor(value: num_complex::Complex64, n: usize) -> String {
-    if qvm::is_zero(value) {
-        "".into()
-    } else {
-        let tensors = [
-            "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", 
-            //"1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111",
-        ];
-        format!("|{}> {}", &tensors[n], value)
+            model.qvm.next();
+        },
     }
 }
 
@@ -259,7 +220,7 @@ fn view(model: &Model) -> Html<Msg> {
             html! {
                 <span>
                     <br></br>
-                    { fmt_tensor(value, n) }
+                    { qvm::fmt_tensor(value, n) }
                 </span>
             }
         }

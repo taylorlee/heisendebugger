@@ -1,14 +1,18 @@
 use num_complex;
 use serde_json;
 use std::collections::BTreeMap;
+use std::f32::EPSILON;
 use std::fmt;
 use std::iter::FromIterator;
-use std::f64::EPSILON;
 
-type Complex = num_complex::Complex64;
+type Complex = num_complex::Complex32;
 
 pub fn is_zero(c: Complex) -> bool {
     c.re.abs() < EPSILON && c.im.abs() < EPSILON
+}
+
+pub fn eq(a: f32, b: f32) -> bool {
+    (a-b).abs() < EPSILON
 }
 
 const S1: usize = 2;
@@ -20,7 +24,6 @@ type Q1 = [Complex; S1];
 type Q2 = [Complex; S2];
 type Q3 = [Complex; S3];
 type Q4 = [Complex; S4];
-
 
 type Qstate = Q3;
 
@@ -56,15 +59,14 @@ pub struct QVM {
 }
 
 trait Mut {
-    fn apply(&mut self, _gate: &G3) {
-    }
+    fn apply(&mut self, _gate: &G3) {}
 }
 
 impl Mut for Qstate {
     fn apply(&mut self, gate: &G3) {
         let new_state = dot_product(&gate, &self);
-        for i in 0..self.len() {
-            self[i] = new_state[i];
+        for (i, elem) in new_state.iter().enumerate() {
+            self[i] = *elem;
         }
     }
 }
@@ -213,14 +215,10 @@ fn g01(g: &G2) -> G3 {
     tp12(&I1, g)
 }
 fn g12(g: &G2) -> G3 {
-    let g3 = tp21(g, &I1);
-    //let arr2: Vec<Vec<f64>> = g3.iter().map(|row| row.iter().map(|elem| elem.re).collect()).collect();
-    //println!("\n{:?}", arr2);
-    g3
-
+    tp21(g, &I1)
 }
 //fn g23(g: &G2) -> G4 {
-    //tp22(g,&I2)
+//tp22(g,&I2)
 //}
 impl QVM {
     pub fn new() -> QVM {
@@ -307,13 +305,13 @@ impl QVM {
                         self.state.apply(swap12);
                     }
                     //("2", "3") => {
-                        //let swap23 = &g23(&SWAP);
-                        //self.state.apply(swap23);
-                        //self.state.apply(&g23(&gate));
-                        //self.state.apply(swap23);
+                    //let swap23 = &g23(&SWAP);
+                    //self.state.apply(swap23);
+                    //self.state.apply(&g23(&gate));
+                    //self.state.apply(swap23);
                     //}
                     //("3", "2") => {
-                        //self.state.apply(&g23(&gate));
+                    //self.state.apply(&g23(&gate));
                     //}
                     _ => panic!("bad qbits: {} {}", qb0, qb1),
                 }
@@ -332,4 +330,62 @@ impl QVM {
             self.counter += 1;
         }
     }
+}
+pub fn fmt_tensor(value: Complex, n: usize) -> String {
+    if is_zero(value) {
+        "".into()
+    } else {
+        let tensors = [
+            "0000", "0001", "0010", "0011", "0100", "0101", "0110",
+            "0111",
+            //"1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111",
+        ];
+        format!("|{}> {}", &tensors[n], value)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn run_test(prog: String) -> QVM {
+        let mut qvm = QVM::new();
+        qvm.update(&prog);
+        loop {
+            debug_state(qvm.state);
+            if qvm.counter == qvm.program.len() {
+                break;
+            }
+            qvm.next();
+        }
+        qvm
+    }
+    fn debug_state(state: Qstate) {
+        println!(
+            "{:#?}",
+            state
+                .iter()
+                .enumerate()
+                .map(|(i, elem)| fmt_tensor(*elem, i))
+                .collect::<Vec<String>>()
+        )
+    }
+    #[test]
+    fn bell() {
+        let prog = "h 0
+cnot 0 1
+".to_string();
+        let qvm = run_test(prog);
+        let n = 1.0 / 2.0_f32.sqrt();
+        assert!(eq(qvm.state[0].re, n)); //000
+        assert!(eq(qvm.state[3].re, n)); //011
+    }
+    #[test]
+    fn swaps() {
+        let prog = "x 0
+cnot 0 1
+swap 1 2
+".to_string();
+        let qvm = run_test(prog);
+        assert!(eq(qvm.state[5].re, 1.0)); // 101
+    }
+
 }

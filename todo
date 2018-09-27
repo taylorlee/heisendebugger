@@ -1,9 +1,10 @@
 
 hdb
-    finish swapping for q3
+    instrument tests
+    refactor g3 tps & g#s
+    scale g3 to g4
     deploy via gh pages
 
-    get to q4
     change textarea to hilight exec line
     easier gate mod
     measurement
