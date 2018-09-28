@@ -14,35 +14,20 @@ pub fn is_zero(c: Complex) -> bool {
 pub fn eq(a: f32, b: f32) -> bool {
     (a-b).abs() < EPSILON
 }
-
+fn pow(a: usize, b: usize) -> usize {
+    let mut prod = 1;
+    for _ in 0..b {
+        prod = a;
+    }
+    prod
+}
 const S1: usize = 2;
 const S2: usize = 2 * 2;
 const S3: usize = 2 * 2 * 2;
 const S4: usize = 2 * 2 * 2 * 2;
 
-type Q1 = [Complex; S1];
-type Q2 = [Complex; S2];
-type Q3 = [Complex; S3];
-type Q4 = [Complex; S4];
-
-type Qstate = Q3;
-
-type G1 = [Q1; S1];
-type G2 = [Q2; S2];
-type G3 = [Q3; S3];
-type G4 = [Q4; S4];
-
-#[derive(Serialize, Deserialize)]
-enum Gate {
-    A(Box<G1>),
-    B(Box<G2>),
-    C(Box<G4>),
-}
-
-struct UGate {
-    size: usize,
-    data: Gate,
-}
+type Qstate = Vec<Complex>;
+type Gate = Vec<Vec<Complex>>;
 
 #[derive(Serialize, PartialEq)]
 pub enum Instruction {
@@ -59,11 +44,11 @@ pub struct QVM {
 }
 
 trait Mut {
-    fn apply(&mut self, _gate: &G3) {}
+    fn apply(&mut self, _gate: &Gate) {}
 }
 
 impl Mut for Qstate {
-    fn apply(&mut self, gate: &G3) {
+    fn apply(&mut self, gate: &Gate) {
         let new_state = dot_product(&gate, &self);
         for (i, elem) in new_state.iter().enumerate() {
             self[i] = *elem;
@@ -75,50 +60,75 @@ pub const C0: Complex = Complex { re: 0.0, im: 0.0 };
 pub const C1: Complex = Complex { re: 1.0, im: 0.0 };
 const CI: Complex = Complex { re: 0.0, im: 1.0 };
 
+type G1 = [[Complex;2];2];
+type G2 = [[Complex;4];4];
+
 const I1: G1 = [[C1, C0], [C0, C1]];
 const I2: G2 = [
-    [C1, C0, C0, C0],
-    [C0, C0, C1, C0],
-    [C0, C1, C0, C0],
-    [C0, C0, C0, C1],
+   [C1, C0, C0, C0],
+   [C0, C0, C1, C0],
+   [C0, C1, C0, C0],
+   [C0, C0, C0, C1],
 ];
 const SWAP: G2 = [
-    [C1, C0, C0, C0],
-    [C0, C0, C1, C0],
-    [C0, C1, C0, C0],
-    [C0, C0, C0, C1],
+   [C1, C0, C0, C0],
+   [C0, C0, C1, C0],
+   [C0, C1, C0, C0],
+   [C0, C0, C0, C1],
 ];
 
+fn vecify(a: G1) -> Gate {
+    let mut outer = Vec::new();
+    for row in &a {
+        let mut inner = Vec::new();
+        for elem in row.iter() {
+            inner.push(*elem);
+        }
+        outer.push(inner);
+    }
+    outer
+}
+fn vecify2(a: G2) -> Gate {
+    let mut outer = Vec::new();
+    for row in &a {
+        let mut inner = Vec::new();
+        for elem in row.iter() {
+            inner.push(*elem);
+        }
+        outer.push(inner);
+    }
+    outer
+}
 fn standard_gates() -> BTreeMap<String, Gate> {
     let mut map = BTreeMap::new();
-    map.insert("x".to_string(), Gate::A(Box::new([[C0, C1], [C1, C0]])));
-    map.insert("z".into(), Gate::A(Box::new([[C1, C0], [C0, -C1]])));
-    map.insert("y".into(), Gate::A(Box::new([[C0, -CI], [CI, C0]])));
+    map.insert("x".into(), vecify([[C0, C1], [C1, C0]]));
+    map.insert("z".into(), vecify([[C1, C0], [C0, -C1]]));
+    map.insert("y".into(), vecify([[C0, -CI], [CI, C0]]));
 
     let h = 1.0 / Complex { re: 2.0, im: 0.0 }.sqrt();
-    map.insert("h".into(), Gate::A(Box::new([[h, h], [h, -h]])));
-    map.insert("i1".into(), Gate::A(Box::new(I1)));
-    map.insert("i2".into(), Gate::B(Box::new(I2)));
+    map.insert("h".into(), vecify([[h, h], [h, -h]]));
+    map.insert("i1".into(), vecify(I1));
+    map.insert("i2".into(), vecify2(I2));
     map.insert(
         "cnot".into(),
-        Gate::B(Box::new([
+        vecify2([
             [C1, C0, C0, C0],
             [C0, C1, C0, C0],
             [C0, C0, C0, C1],
             [C0, C0, C1, C0],
-        ])),
+        ]),
     );
-    map.insert("swap".into(), Gate::B(Box::new(SWAP)));
+    map.insert("swap".into(), vecify2(SWAP));
     map
 }
 fn zero() -> Qstate {
-    let mut ret = [C0; S3];
+    let mut ret = vec![C0; S4];
     ret[0] = C1;
     ret
 }
 
-fn dot_product(gate: &G3, state: &Qstate) -> Qstate {
-    let mut ret = [C0; S3];
+fn dot_product(gate: &Gate, state: &Qstate) -> Qstate {
+    let mut ret = vec![C0; S4];
     for (i, row) in gate.iter().enumerate() {
         for (j, item) in row.iter().enumerate() {
             ret[i] += item * state[j];
@@ -127,9 +137,9 @@ fn dot_product(gate: &G3, state: &Qstate) -> Qstate {
     ret
 }
 
-fn tp11(a: &G1, b: &G1) -> G2 {
-    let nq = 2;
-    let mut ret = [[C0; S2]; S2];
+fn tp11(a: &Gate, b: &Gate) -> Gate {
+    let nq = b.len();
+    let mut ret = vec![vec![C0; S2]; S2];
     for (a_i, a_row) in a.iter().enumerate() {
         for (a_j, a_item) in a_row.iter().enumerate() {
             for (b_i, b_row) in b.iter().enumerate() {
@@ -143,9 +153,9 @@ fn tp11(a: &G1, b: &G1) -> G2 {
     }
     ret
 }
-fn tp21(a: &G2, b: &G1) -> G3 {
+fn tp21(a: &Gate, b: &Gate) -> Gate {
     let nq = 2;
-    let mut ret = [[C0; S3]; S3];
+    let mut ret = vec![vec![C0; S3]; S3];
     for (a_i, a_row) in a.iter().enumerate() {
         for (a_j, a_item) in a_row.iter().enumerate() {
             for (b_i, b_row) in b.iter().enumerate() {
@@ -159,9 +169,9 @@ fn tp21(a: &G2, b: &G1) -> G3 {
     }
     ret
 }
-fn tp12(a: &G1, b: &G2) -> G3 {
+fn tp12(a: &Gate, b: &Gate) -> Gate {
     let nq = 4;
-    let mut ret = [[C0; S3]; S3];
+    let mut ret = vec![vec![C0; S3]; S3];
     for (a_i, a_row) in a.iter().enumerate() {
         for (a_j, a_item) in a_row.iter().enumerate() {
             for (b_i, b_row) in b.iter().enumerate() {
@@ -175,9 +185,9 @@ fn tp12(a: &G1, b: &G2) -> G3 {
     }
     ret
 }
-fn tp13(a: &G1, b: &G3) -> G4 {
+fn tp13(a: &Gate, b: &Gate) -> Gate {
     let nq = 2;
-    let mut ret = [[C0; S4]; S4];
+    let mut ret = vec![vec![C0; S4]; S4];
     for (a_i, a_row) in a.iter().enumerate() {
         for (a_j, a_item) in a_row.iter().enumerate() {
             for (b_i, b_row) in b.iter().enumerate() {
@@ -191,9 +201,9 @@ fn tp13(a: &G1, b: &G3) -> G4 {
     }
     ret
 }
-fn tp22(a: &G2, b: &G2) -> G4 {
+fn tp22(a: &Gate, b: &Gate) -> Gate {
     let nq = 4;
-    let mut ret = [[C0; S4]; S4];
+    let mut ret = vec![vec![C0; S4]; S4];
     for (a_i, a_row) in a.iter().enumerate() {
         for (a_j, a_item) in a_row.iter().enumerate() {
             for (b_i, b_row) in b.iter().enumerate() {
@@ -207,17 +217,17 @@ fn tp22(a: &G2, b: &G2) -> G4 {
     }
     ret
 }
-fn tp(a: &G1, b: &G1, c: &G1) -> G3 {
+fn tp(a: &Gate, b: &Gate, c: &Gate) -> Gate {
     tp21(&tp11(a, b), c)
 }
 
-fn g01(g: &G2) -> G3 {
-    tp12(&I1, g)
+fn g01(g: &Gate) -> Gate {
+    tp12(&vecify(I1), g)
 }
-fn g12(g: &G2) -> G3 {
-    tp21(g, &I1)
+fn g12(g: &Gate) -> Gate {
+    tp21(g, &vecify(I1))
 }
-//fn g23(g: &G2) -> G4 {
+//fn g23(g: &Gate) -> Gate {
 //tp22(g,&I2)
 //}
 impl QVM {
@@ -272,49 +282,39 @@ impl QVM {
     }
     fn operate(&mut self) {
         if let Instruction::Single(gate, qb) = &self.program[self.counter] {
-            if let Gate::A(gate) = &self.gates[gate] {
-                let lifted = match qb.as_str() {
-                    "0" => tp(&I1, &I1, gate),
-                    "1" => tp(&I1, gate, &I1),
-                    "2" => tp(gate, &I1, &I1),
-                    //"3" => tp(gate, &I1, &I1, &I1),
-                    _ => panic!("bad target {}", qb),
-                };
-                self.state.apply(&lifted);
-            }
+            let i1 = vecify(I1);
+            let gate = &self.gates[gate];
+            let lifted = match qb.as_str() {
+                "0" => tp(&i1, &i1, gate),
+                "1" => tp(&i1, gate, &i1),
+                "2" => tp(gate, &i1, &i1),
+                _ => panic!("bad target {}", qb),
+            };
+            self.state.apply(&lifted);
         } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
-            if let Gate::B(gate) = &self.gates[gate] {
-                match (qb0.as_str(), qb1.as_str()) {
-                    // TODO why did it reverse from Q2? FIXIT
-                    ("0", "1") => {
-                        let swap01 = &g01(&SWAP);
-                        self.state.apply(swap01);
-                        self.state.apply(&g01(&gate));
-                        self.state.apply(swap01);
-                    }
-                    ("1", "0") => {
-                        self.state.apply(&g01(&gate));
-                    }
-                    ("2", "1") => {
-                        self.state.apply(&g12(&gate));
-                    }
-                    ("1", "2") => {
-                        let swap12 = &g12(&SWAP);
-                        self.state.apply(swap12);
-                        self.state.apply(&g12(&gate));
-                        self.state.apply(swap12);
-                    }
-                    //("2", "3") => {
-                    //let swap23 = &g23(&SWAP);
-                    //self.state.apply(swap23);
-                    //self.state.apply(&g23(&gate));
-                    //self.state.apply(swap23);
-                    //}
-                    //("3", "2") => {
-                    //self.state.apply(&g23(&gate));
-                    //}
-                    _ => panic!("bad qbits: {} {}", qb0, qb1),
+            let gate = &self.gates[gate];
+            let swap = vecify2(SWAP);
+            match (qb0.as_str(), qb1.as_str()) {
+                // TODO why did it reverse from Q2? FIXIT
+                ("0", "1") => {
+                    let swap01 = &g01(&swap);
+                    self.state.apply(swap01);
+                    self.state.apply(&g01(&gate));
+                    self.state.apply(swap01);
                 }
+                ("1", "0") => {
+                    self.state.apply(&g01(&gate));
+                }
+                ("2", "1") => {
+                    self.state.apply(&g12(&gate));
+                }
+                ("1", "2") => {
+                    let swap12 = &g12(&swap);
+                    self.state.apply(swap12);
+                    self.state.apply(&g12(&gate));
+                    self.state.apply(swap12);
+                }
+                _ => panic!("bad qbits: {} {}", qb0, qb1),
             }
         }
     }
@@ -350,7 +350,7 @@ mod tests {
         let mut qvm = QVM::new();
         qvm.update(&prog);
         loop {
-            debug_state(qvm.state);
+            debug_state(qvm.state.clone());
             if qvm.counter == qvm.program.len() {
                 break;
             }
@@ -372,20 +372,29 @@ mod tests {
     fn bell() {
         let prog = "h 0
 cnot 0 1
-".to_string();
+".into();
         let qvm = run_test(prog);
         let n = 1.0 / 2.0_f32.sqrt();
-        assert!(eq(qvm.state[0].re, n)); //000
-        assert!(eq(qvm.state[3].re, n)); //011
+        assert!(eq(qvm.state[0].re, n)); // 0000
+        assert!(eq(qvm.state[3].re, n)); // 0011
     }
     #[test]
     fn swaps() {
         let prog = "x 0
 cnot 0 1
 swap 1 2
-".to_string();
+".into();
         let qvm = run_test(prog);
-        assert!(eq(qvm.state[5].re, 1.0)); // 101
+        assert!(eq(qvm.state[5].re, 1.0)); // 0101
     }
+    //#[test]
+    //fn q4() {
+        //let prog = "x 0
+//x 1
+//x 2
+//x 3".into();
+        //let qvm = run_test(prog);
+        //assert!(eq(qvm.state[15].re, 1.0)); // 1111
+    //}
 
 }

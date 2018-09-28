@@ -1,6 +1,5 @@
 
 hdb
-    instrument tests
     refactor g3 tps & g#s
     scale g3 to g4
     deploy via gh pages
