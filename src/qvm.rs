@@ -137,99 +137,41 @@ fn dot_product(gate: &Gate, state: &Qstate) -> Qstate {
     ret
 }
 
-fn tp11(a: &Gate, b: &Gate) -> Gate {
+fn tensor_product(a: &Gate, b: &Gate) -> Gate {
     let nq = b.len();
-    let mut ret = vec![vec![C0; S2]; S2];
+    let dim = nq * a.len();
+    let mut mat = Vec::new();
+    for _ in 0..dim {
+        let mut row = Vec::new();
+        for _ in 0..dim {
+            row.push(C0);
+        }
+        mat.push(row);
+    }
     for (a_i, a_row) in a.iter().enumerate() {
         for (a_j, a_item) in a_row.iter().enumerate() {
             for (b_i, b_row) in b.iter().enumerate() {
                 for (b_j, b_item) in b_row.iter().enumerate() {
                     let rdx = a_i * nq + b_i;
                     let cdx = a_j * nq + b_j;
-                    ret[rdx][cdx] = a_item * b_item;
+                    mat[rdx][cdx] = a_item * b_item;
                 }
             }
         }
     }
-    ret
-}
-fn tp21(a: &Gate, b: &Gate) -> Gate {
-    let nq = 2;
-    let mut ret = vec![vec![C0; S3]; S3];
-    for (a_i, a_row) in a.iter().enumerate() {
-        for (a_j, a_item) in a_row.iter().enumerate() {
-            for (b_i, b_row) in b.iter().enumerate() {
-                for (b_j, b_item) in b_row.iter().enumerate() {
-                    let rdx = a_i * nq + b_i;
-                    let cdx = a_j * nq + b_j;
-                    ret[rdx][cdx] = a_item * b_item;
-                }
-            }
-        }
-    }
-    ret
-}
-fn tp12(a: &Gate, b: &Gate) -> Gate {
-    let nq = 4;
-    let mut ret = vec![vec![C0; S3]; S3];
-    for (a_i, a_row) in a.iter().enumerate() {
-        for (a_j, a_item) in a_row.iter().enumerate() {
-            for (b_i, b_row) in b.iter().enumerate() {
-                for (b_j, b_item) in b_row.iter().enumerate() {
-                    let rdx = a_i * nq + b_i;
-                    let cdx = a_j * nq + b_j;
-                    ret[rdx][cdx] = a_item * b_item;
-                }
-            }
-        }
-    }
-    ret
-}
-fn tp13(a: &Gate, b: &Gate) -> Gate {
-    let nq = 2;
-    let mut ret = vec![vec![C0; S4]; S4];
-    for (a_i, a_row) in a.iter().enumerate() {
-        for (a_j, a_item) in a_row.iter().enumerate() {
-            for (b_i, b_row) in b.iter().enumerate() {
-                for (b_j, b_item) in b_row.iter().enumerate() {
-                    let rdx = a_i * nq + b_i;
-                    let cdx = a_j * nq + b_j;
-                    ret[rdx][cdx] = a_item * b_item;
-                }
-            }
-        }
-    }
-    ret
-}
-fn tp22(a: &Gate, b: &Gate) -> Gate {
-    let nq = 4;
-    let mut ret = vec![vec![C0; S4]; S4];
-    for (a_i, a_row) in a.iter().enumerate() {
-        for (a_j, a_item) in a_row.iter().enumerate() {
-            for (b_i, b_row) in b.iter().enumerate() {
-                for (b_j, b_item) in b_row.iter().enumerate() {
-                    let rdx = a_i * nq + b_i;
-                    let cdx = a_j * nq + b_j;
-                    ret[rdx][cdx] = a_item * b_item;
-                }
-            }
-        }
-    }
-    ret
+    mat
 }
 fn tp(a: &Gate, b: &Gate, c: &Gate) -> Gate {
-    tp21(&tp11(a, b), c)
+    tensor_product(&tensor_product(a, b), c)
 }
 
 fn g01(g: &Gate) -> Gate {
-    tp12(&vecify(I1), g)
+    tensor_product(&vecify(I1), g)
 }
 fn g12(g: &Gate) -> Gate {
-    tp21(g, &vecify(I1))
+    tensor_product(g, &vecify(I1))
 }
-//fn g23(g: &Gate) -> Gate {
-//tp22(g,&I2)
-//}
+
 impl QVM {
     pub fn new() -> QVM {
         QVM {
