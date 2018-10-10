@@ -1,7 +1,7 @@
 
 hdb
-    refactor g3 tps & g#s
-    scale g3 to g4
+    allow 3 & 4 qb gates
+    refactor/abstract gate application
     deploy via gh pages
 
     change textarea to hilight exec line

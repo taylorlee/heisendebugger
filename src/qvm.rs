@@ -12,7 +12,7 @@ pub fn is_zero(c: Complex) -> bool {
 }
 
 pub fn eq(a: f32, b: f32) -> bool {
-    (a-b).abs() < EPSILON
+    (a - b).abs() < EPSILON
 }
 fn pow(a: usize, b: usize) -> usize {
     let mut prod = 1;
@@ -60,21 +60,21 @@ pub const C0: Complex = Complex { re: 0.0, im: 0.0 };
 pub const C1: Complex = Complex { re: 1.0, im: 0.0 };
 const CI: Complex = Complex { re: 0.0, im: 1.0 };
 
-type G1 = [[Complex;2];2];
-type G2 = [[Complex;4];4];
+type G1 = [[Complex; 2]; 2];
+type G2 = [[Complex; 4]; 4];
 
 const I1: G1 = [[C1, C0], [C0, C1]];
 const I2: G2 = [
-   [C1, C0, C0, C0],
-   [C0, C0, C1, C0],
-   [C0, C1, C0, C0],
-   [C0, C0, C0, C1],
+    [C1, C0, C0, C0],
+    [C0, C0, C1, C0],
+    [C0, C1, C0, C0],
+    [C0, C0, C0, C1],
 ];
 const SWAP: G2 = [
-   [C1, C0, C0, C0],
-   [C0, C0, C1, C0],
-   [C0, C1, C0, C0],
-   [C0, C0, C0, C1],
+    [C1, C0, C0, C0],
+    [C0, C0, C1, C0],
+    [C0, C1, C0, C0],
+    [C0, C0, C0, C1],
 ];
 
 fn vecify(a: G1) -> Gate {
@@ -138,8 +138,8 @@ fn dot_product(gate: &Gate, state: &Qstate) -> Qstate {
 }
 
 fn tensor_product(a: &Gate, b: &Gate) -> Gate {
-    let nq = b.len();
-    let dim = nq * a.len();
+    let b_dim = b.len();
+    let dim = b_dim * a.len();
     let mut mat = Vec::new();
     for _ in 0..dim {
         let mut row = Vec::new();
@@ -152,8 +152,8 @@ fn tensor_product(a: &Gate, b: &Gate) -> Gate {
         for (a_j, a_item) in a_row.iter().enumerate() {
             for (b_i, b_row) in b.iter().enumerate() {
                 for (b_j, b_item) in b_row.iter().enumerate() {
-                    let rdx = a_i * nq + b_i;
-                    let cdx = a_j * nq + b_j;
+                    let rdx = a_i * b_dim + b_i;
+                    let cdx = a_j * b_dim + b_j;
                     mat[rdx][cdx] = a_item * b_item;
                 }
             }
@@ -161,15 +161,21 @@ fn tensor_product(a: &Gate, b: &Gate) -> Gate {
     }
     mat
 }
-fn tp(a: &Gate, b: &Gate, c: &Gate) -> Gate {
-    tensor_product(&tensor_product(a, b), c)
+fn tp(a: &Gate, b: &Gate, c: &Gate, d: &Gate) -> Gate {
+   tensor_product(&tensor_product(&tensor_product(a, b), c), d)
 }
 
 fn g01(g: &Gate) -> Gate {
-    tensor_product(&vecify(I1), g)
+    let i1 = &vecify(I1);
+    tensor_product(&tensor_product(i1, i1), g)
 }
 fn g12(g: &Gate) -> Gate {
-    tensor_product(g, &vecify(I1))
+    let i1 = &vecify(I1);
+    tensor_product(&tensor_product(i1, g), i1)
+}
+fn g23(g: &Gate) -> Gate {
+    let i1 = &vecify(I1);
+    tensor_product(&tensor_product(g, i1), i1)
 }
 
 impl QVM {
@@ -224,22 +230,23 @@ impl QVM {
     }
     fn operate(&mut self) {
         if let Instruction::Single(gate, qb) = &self.program[self.counter] {
-            let i1 = vecify(I1);
+            let i1 = &self.gates["i1"];
             let gate = &self.gates[gate];
             let lifted = match qb.as_str() {
-                "0" => tp(&i1, &i1, gate),
-                "1" => tp(&i1, gate, &i1),
-                "2" => tp(gate, &i1, &i1),
+                "0" => tp(&i1, &i1, &i1, gate),
+                "1" => tp(&i1, &i1, gate, &i1),
+                "2" => tp(&i1, gate, &i1, &i1),
+                "3" => tp(gate, &i1, &i1, &i1),
                 _ => panic!("bad target {}", qb),
             };
             self.state.apply(&lifted);
         } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
             let gate = &self.gates[gate];
-            let swap = vecify2(SWAP);
+            let swap = &self.gates["swap"];
             match (qb0.as_str(), qb1.as_str()) {
-                // TODO why did it reverse from Q2? FIXIT
+                // adjacent:
                 ("0", "1") => {
-                    let swap01 = &g01(&swap);
+                    let swap01 = &g01(swap);
                     self.state.apply(swap01);
                     self.state.apply(&g01(&gate));
                     self.state.apply(swap01);
@@ -247,15 +254,78 @@ impl QVM {
                 ("1", "0") => {
                     self.state.apply(&g01(&gate));
                 }
+                ("1", "2") => {
+                    let swap12 = &g12(swap);
+                    self.state.apply(swap12);
+                    self.state.apply(&g12(&gate));
+                    self.state.apply(swap12);
+                }
                 ("2", "1") => {
                     self.state.apply(&g12(&gate));
                 }
-                ("1", "2") => {
-                    let swap12 = &g12(&swap);
+                ("2", "3") => {
+                    let swap23 = &g23(swap);
+                    self.state.apply(swap23);
+                    self.state.apply(&g23(&gate));
+                    self.state.apply(swap23);
+                }
+                ("3", "2") => {
+                    self.state.apply(&g23(&gate));
+                }
+                // once removed
+                ("0", "2") => {
+                    let swap01 = &g01(swap);
+                    let swap12 = &g12(swap);
+                    self.state.apply(swap12);
+                    self.state.apply(swap01);
+                    self.state.apply(&g01(&gate));
+                    self.state.apply(swap01);
+                    self.state.apply(swap12);
+                }
+                ("2", "0") => {
+                    let swap12 = &g12(swap);
+                    self.state.apply(swap12);
+                    self.state.apply(&g01(&gate));
+                    self.state.apply(swap12);
+                }
+                ("1", "3") => {
+                    let swap12 = &g12(swap);
+                    let swap23 = &g23(swap);
+                    self.state.apply(swap23);
                     self.state.apply(swap12);
                     self.state.apply(&g12(&gate));
                     self.state.apply(swap12);
+                    self.state.apply(swap23);
                 }
+                ("3", "1") => {
+                    let swap23 = &g23(swap);
+                    self.state.apply(swap23);
+                    self.state.apply(&g12(&gate));
+                    self.state.apply(swap23);
+                }
+                // twice removed
+                ("0", "3") => {
+                    let swap01 = &g01(swap);
+                    let swap12 = &g12(swap);
+                    let swap23 = &g23(swap);
+                    self.state.apply(swap23);
+                    self.state.apply(swap12);
+                    self.state.apply(swap01);
+                    self.state.apply(&g01(&gate));
+                    self.state.apply(swap01);
+                    self.state.apply(swap12);
+                    self.state.apply(swap23);
+                }
+                ("3", "0") => {
+                    let swap12 = &g12(swap);
+                    let swap23 = &g23(swap);
+                    self.state.apply(swap23);
+                    self.state.apply(swap12);
+                    self.state.apply(&g01(&gate));
+                    self.state.apply(swap12);
+                    self.state.apply(swap23);
+                }
+
                 _ => panic!("bad qbits: {} {}", qb0, qb1),
             }
         }
@@ -278,9 +348,8 @@ pub fn fmt_tensor(value: Complex, n: usize) -> String {
         "".into()
     } else {
         let tensors = [
-            "0000", "0001", "0010", "0011", "0100", "0101", "0110",
-            "0111",
-            //"1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111",
+            "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001", "1010",
+            "1011", "1100", "1101", "1110", "1111",
         ];
         format!("|{}> {}", &tensors[n], value)
     }
@@ -329,14 +398,37 @@ swap 1 2
         let qvm = run_test(prog);
         assert!(eq(qvm.state[5].re, 1.0)); // 0101
     }
-    //#[test]
-    //fn q4() {
-        //let prog = "x 0
-//x 1
-//x 2
-//x 3".into();
-        //let qvm = run_test(prog);
-        //assert!(eq(qvm.state[15].re, 1.0)); // 1111
-    //}
+    #[test]
+    fn swap02() {
+        let prog = "x 0
+swap 0 2
+swap 1 2
+x 0
+swap 2 0
+".into();
+        let qvm = run_test(prog);
+        assert!(eq(qvm.state[6].re, 1.0)); // 0110
+    }
+    #[test]
+    fn swap23() {
+        let prog = "x 3
+swap 2 3
+x 3
+swap 3 1
+x 3
+swap 3 0
+".into();
+        let qvm = run_test(prog);
+        assert!(eq(qvm.state[7].re, 1.0)); // 0111
+    }
+
+    #[test]
+    fn q4() {
+        let prog = "x 1
+x 3
+".into();
+        let qvm = run_test(prog);
+        assert!(eq(qvm.state[10].re, 1.0)); // 1010
+    }
 
 }
