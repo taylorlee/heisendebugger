@@ -44,11 +44,13 @@ pub struct QVM {
 }
 
 trait Mut {
-    fn apply(&mut self, _gate: &Gate) {}
+    fn apply(&mut self, _gates: Vec<&Gate>) {
+    }
 }
 
 impl Mut for Qstate {
-    fn apply(&mut self, gate: &Gate) {
+    fn apply(&mut self, gates: Vec<&Gate>) {
+        let gate = join_gates(gates);
         let new_state = dot_product(&gate, &self);
         for (i, elem) in new_state.iter().enumerate() {
             self[i] = *elem;
@@ -56,6 +58,21 @@ impl Mut for Qstate {
     }
 }
 
+fn mul(this: &Gate, other: &Gate) -> Gate {
+    let size = this.len();
+    assert!(size == other.len());
+    let mut ret = other.clone();
+    for i in 0..size {
+        for j in 0..size {
+            let mut val = C0;
+            for k in 0..size {
+                val += this[i][k] * other[k][j];
+            }
+            ret[i][j] = val;
+        }
+    }
+    ret
+}
 pub const C0: Complex = Complex { re: 0.0, im: 0.0 };
 pub const C1: Complex = Complex { re: 1.0, im: 0.0 };
 const CI: Complex = Complex { re: 0.0, im: 1.0 };
@@ -178,6 +195,17 @@ fn g23(g: &Gate) -> Gate {
     tensor_product(&tensor_product(g, i1), i1)
 }
 
+fn join_gates(gates: Vec<&Gate>) -> Gate {
+    let size = gates.len();
+    let mut ret = gates[0].clone();
+    for i in 1..size {
+        ret = mul(gates[i], &ret);
+    }
+    for i in 1..size {
+        ret = mul(gates[size-1-i], &ret);
+    }
+    ret
+}
 impl QVM {
     pub fn new() -> QVM {
         QVM {
@@ -239,91 +267,52 @@ impl QVM {
                 "3" => tp(gate, &i1, &i1, &i1),
                 _ => panic!("bad target {}", qb),
             };
-            self.state.apply(&lifted);
+            self.state.apply(vec![&lifted]);
         } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
             let gate = &self.gates[gate];
             let swap = &self.gates["swap"];
+            let swap01 = &g01(swap);
+            let swap12 = &g12(swap);
+            let swap23 = &g23(swap);
             match (qb0.as_str(), qb1.as_str()) {
                 // adjacent:
                 ("0", "1") => {
-                    let swap01 = &g01(swap);
-                    self.state.apply(swap01);
-                    self.state.apply(&g01(&gate));
-                    self.state.apply(swap01);
+                    self.state.apply(vec![swap01, &g01(&gate)]);
                 }
                 ("1", "0") => {
-                    self.state.apply(&g01(&gate));
+                    self.state.apply(vec![&g01(&gate)]);
                 }
                 ("1", "2") => {
-                    let swap12 = &g12(swap);
-                    self.state.apply(swap12);
-                    self.state.apply(&g12(&gate));
-                    self.state.apply(swap12);
+                    self.state.apply(vec![swap12, &g12(&gate)]);
                 }
                 ("2", "1") => {
-                    self.state.apply(&g12(&gate));
+                    self.state.apply(vec![&g12(&gate)]);
                 }
                 ("2", "3") => {
-                    let swap23 = &g23(swap);
-                    self.state.apply(swap23);
-                    self.state.apply(&g23(&gate));
-                    self.state.apply(swap23);
+                    self.state.apply(vec![swap23, &g23(&gate)]);
                 }
                 ("3", "2") => {
-                    self.state.apply(&g23(&gate));
+                    self.state.apply(vec![&g23(&gate)]);
                 }
                 // once removed
                 ("0", "2") => {
-                    let swap01 = &g01(swap);
-                    let swap12 = &g12(swap);
-                    self.state.apply(swap12);
-                    self.state.apply(swap01);
-                    self.state.apply(&g01(&gate));
-                    self.state.apply(swap01);
-                    self.state.apply(swap12);
+                    self.state.apply(vec![swap12, swap01, &g01(&gate)]);
                 }
                 ("2", "0") => {
-                    let swap12 = &g12(swap);
-                    self.state.apply(swap12);
-                    self.state.apply(&g01(&gate));
-                    self.state.apply(swap12);
+                    self.state.apply(vec![swap12, &g01(&gate)]);
                 }
                 ("1", "3") => {
-                    let swap12 = &g12(swap);
-                    let swap23 = &g23(swap);
-                    self.state.apply(swap23);
-                    self.state.apply(swap12);
-                    self.state.apply(&g12(&gate));
-                    self.state.apply(swap12);
-                    self.state.apply(swap23);
+                    self.state.apply(vec![swap23, swap12, &g12(&gate)]);
                 }
                 ("3", "1") => {
-                    let swap23 = &g23(swap);
-                    self.state.apply(swap23);
-                    self.state.apply(&g12(&gate));
-                    self.state.apply(swap23);
+                    self.state.apply(vec![swap23, &g12(&gate)]);
                 }
                 // twice removed
                 ("0", "3") => {
-                    let swap01 = &g01(swap);
-                    let swap12 = &g12(swap);
-                    let swap23 = &g23(swap);
-                    self.state.apply(swap23);
-                    self.state.apply(swap12);
-                    self.state.apply(swap01);
-                    self.state.apply(&g01(&gate));
-                    self.state.apply(swap01);
-                    self.state.apply(swap12);
-                    self.state.apply(swap23);
+                    self.state.apply(vec![swap23, swap12, swap01, &g01(&gate)]);
                 }
                 ("3", "0") => {
-                    let swap12 = &g12(swap);
-                    let swap23 = &g23(swap);
-                    self.state.apply(swap23);
-                    self.state.apply(swap12);
-                    self.state.apply(&g01(&gate));
-                    self.state.apply(swap12);
-                    self.state.apply(swap23);
+                    self.state.apply(vec![swap23, swap12, &g01(&gate)]);
                 }
 
                 _ => panic!("bad qbits: {} {}", qb0, qb1),
