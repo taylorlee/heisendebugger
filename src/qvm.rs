@@ -43,13 +43,14 @@ pub struct QVM {
     gates: BTreeMap<String, Gate>,
 }
 
-trait Mut {
+trait MutableState {
     fn apply(&mut self, _gates: Vec<&Gate>) {
     }
 }
 
-impl Mut for Qstate {
+impl MutableState for Qstate {
     fn apply(&mut self, gates: Vec<&Gate>) {
+        // apply a series of lifted gates to a quantum state
         let gate = join_gates(gates);
         let new_state = dot_product(&gate, &self);
         for (i, elem) in new_state.iter().enumerate() {
@@ -59,6 +60,7 @@ impl Mut for Qstate {
 }
 
 fn mul(this: &Gate, other: &Gate) -> Gate {
+    // matrix multiplication
     let size = this.len();
     assert!(size == other.len());
     let mut ret = other.clone();
@@ -196,6 +198,7 @@ fn g23(g: &Gate) -> Gate {
 }
 
 fn join_gates(gates: Vec<&Gate>) -> Gate {
+    // [a,b,c] -> a*b*c*b*a
     let size = gates.len();
     let mut ret = gates[0].clone();
     for i in 1..size {
@@ -275,15 +278,25 @@ impl QVM {
             let swap12 = &g12(swap);
             let swap23 = &g23(swap);
             match (qb0.as_str(), qb1.as_str()) {
-                // adjacent:
-                ("0", "1") => {
-                    self.state.apply(vec![swap01, &g01(&gate)]);
-                }
+                // TODO reflexive gates allowed?
+                ("0", "1") => self.state.apply(vec![swap01, &g01(&gate)]),
+                ("0", "2") => self.state.apply(vec![swap12, swap01, &g01(&gate)]),
+                ("0", "3") => self.state.apply(vec![swap23, swap12, swap01, &g01(&gate)]),
                 ("1", "0") => {
                     self.state.apply(vec![&g01(&gate)]);
                 }
+                ("2", "0") => {
+                    self.state.apply(vec![swap12, &g01(&gate)]);
+                }
+                ("3", "0") => {
+                    self.state.apply(vec![swap23, swap12, &g01(&gate)]);
+                }
+                // later
                 ("1", "2") => {
                     self.state.apply(vec![swap12, &g12(&gate)]);
+                }
+                ("1", "3") => {
+                    self.state.apply(vec![swap23, swap12, &g12(&gate)]);
                 }
                 ("2", "1") => {
                     self.state.apply(vec![&g12(&gate)]);
@@ -291,30 +304,12 @@ impl QVM {
                 ("2", "3") => {
                     self.state.apply(vec![swap23, &g23(&gate)]);
                 }
-                ("3", "2") => {
-                    self.state.apply(vec![&g23(&gate)]);
-                }
-                // once removed
-                ("0", "2") => {
-                    self.state.apply(vec![swap12, swap01, &g01(&gate)]);
-                }
-                ("2", "0") => {
-                    self.state.apply(vec![swap12, &g01(&gate)]);
-                }
-                ("1", "3") => {
-                    self.state.apply(vec![swap23, swap12, &g12(&gate)]);
-                }
                 ("3", "1") => {
                     self.state.apply(vec![swap23, &g12(&gate)]);
                 }
-                // twice removed
-                ("0", "3") => {
-                    self.state.apply(vec![swap23, swap12, swap01, &g01(&gate)]);
+                ("3", "2") => {
+                    self.state.apply(vec![&g23(&gate)]);
                 }
-                ("3", "0") => {
-                    self.state.apply(vec![swap23, swap12, &g01(&gate)]);
-                }
-
                 _ => panic!("bad qbits: {} {}", qb0, qb1),
             }
         }
