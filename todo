@@ -1,7 +1,7 @@
 
 hdb
-    allow 3 & 4 qb gates
-    refactor/abstract gate application
+    7, 8 qb
+    allow multi qb gates
     deploy via gh pages
 
     change textarea to hilight exec line

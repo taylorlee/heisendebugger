@@ -192,6 +192,13 @@ fn tp2(a: &Gate, b: &Gate, c: &Gate, d: &Gate, e: &Gate) -> Gate {
   tensor_product(&tensor_product(&tensor_product(&tensor_product(a, b), c), d), e)
 }
 
+fn g(n: usize, g: &Gate) -> Gate {
+    let i1 = &vecify(I1);
+    let mut arr = [i1,i1,i1,i1,i1];
+    arr[4-n] = g;
+    tp2(arr[0], arr[1], arr[2], arr[3], arr[4])
+}
+
 //TODO reduction
 fn g01(g: &Gate) -> Gate {
     let i1 = &vecify(I1);
@@ -293,7 +300,7 @@ impl QVM {
             self.state.apply(vec![&lifted]);
         } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
             let swap = &self.gates["swap"];
-            let swappers: Vec<Gate> = [g01, g12, g23, g34, g45].iter().map(|f| f(swap)).collect();
+            let swappers: Vec<Gate> = (0..5).map(|n| g(n,swap)).collect();
 
             let qb0 = usize::from_str_radix(&qb0, 10).unwrap();
             let qb1 = usize::from_str_radix(&qb1, 10).unwrap();
@@ -307,15 +314,7 @@ impl QVM {
                 low = qb0;
                 high = qb1;
             };
-            let lift = match low {
-                0 => g01,
-                1 => g12,
-                2 => g23,
-                3 => g34,
-                4 => g45,
-                _ => panic!("bad target {}", qb0),
-            };
-            let gate = &lift(&self.gates[gate]);
+            let gate = &g(low, &self.gates[gate]);
             let mut gatelist = Vec::new();
             for i in 0..(high-low) {
                 gatelist.push(&swappers[high-1-i]);
@@ -342,75 +341,8 @@ pub fn fmt_tensor(value: Complex, n: usize) -> String {
     if is_zero(value) {
         "".into()
     } else {
-        let tensors = [
-        //TODO reduction
-        "000000",
-        "000001",
-        "000010",
-        "000011",
-        "000100",
-        "000101",
-        "000110",
-        "000111",
-        "001000",
-        "001001",
-        "001010",
-        "001011",
-        "001100",
-        "001101",
-        "001110",
-        "001111",
-        "010000",
-        "010001",
-        "010010",
-        "010011",
-        "010100",
-        "010101",
-        "010110",
-        "010111",
-        "011000",
-        "011001",
-        "011010",
-        "011011",
-        "011100",
-        "011101",
-        "011110",
-        "011111",
-        "100000",
-        "100001",
-        "100010",
-        "100011",
-        "100100",
-        "100101",
-        "100110",
-        "100111",
-        "101000",
-        "101001",
-        "101010",
-        "101011",
-        "101100",
-        "101101",
-        "101110",
-        "101111",
-        "110000",
-        "110001",
-        "110010",
-        "110011",
-        "110100",
-        "110101",
-        "110110",
-        "110111",
-        "111000",
-        "111001",
-        "111010",
-        "111011",
-        "111100",
-        "111101",
-        "111110",
-        "111111",
-
-        ];
-        format!("|{}> {}", &tensors[n], value)
+        let repr = format!("{:08b}", n);
+        format!("|{}> {}", repr, value)
     }
 }
 #[cfg(test)]
@@ -429,14 +361,17 @@ mod tests {
         qvm
     }
     fn debug_state(state: Qstate) {
-        println!(
-            "{:#?}",
-            state
-                .iter()
-                .enumerate()
-                .map(|(i, elem)| fmt_tensor(*elem, i))
-                .collect::<Vec<String>>()
-        )
+        println!("");
+        let coeffs = state
+            .iter()
+            .enumerate()
+            .map(|(i, elem)| fmt_tensor(*elem, i));
+
+        for string in coeffs {
+            if string.len() > 0 {
+                println!("{}", string);
+            }
+        }
     }
     #[test]
     fn bell() {
