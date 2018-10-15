@@ -1,13 +1,14 @@
 
 hdb
-    7, 8 qb
+    bench & optimize to < 10s test suite
     allow multi qb gates
-    deploy via gh pages
 
     change textarea to hilight exec line
     easier gate mod
     measurement
     refactor editor component?
+
+    deploy via gh pages
 
 rust
     manual copying warning?

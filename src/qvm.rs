@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::f32::EPSILON;
 use std::fmt;
 use std::iter::FromIterator;
+use std::cmp::{min, max};
 
 type Complex = num_complex::Complex32;
 
@@ -21,7 +22,8 @@ fn pow(a: usize, b: usize) -> usize {
     }
     prod
 }
-const S: usize = 64; // 2 ^ 6
+const S: usize = 256; // 2 ^ 8
+const NQ: usize = 8;
 
 type Qstate = Vec<Complex>;
 type Gate = Vec<Vec<Complex>>;
@@ -31,6 +33,7 @@ pub enum Instruction {
     Malformed,
     Single(String, String),
     Double(String, String, String),
+    // TODO Triple Qubit Gate
 }
 
 pub struct QVM {
@@ -185,40 +188,23 @@ fn tensor_product(a: &Gate, b: &Gate) -> Gate {
     }
     mat
 }
-fn tp(a: &Gate, b: &Gate, c: &Gate, d: &Gate, e: &Gate, f: &Gate) -> Gate {
-   tensor_product(&tp2(a,b,c,d,e),f)
-}
-fn tp2(a: &Gate, b: &Gate, c: &Gate, d: &Gate, e: &Gate) -> Gate {
-  tensor_product(&tensor_product(&tensor_product(&tensor_product(a, b), c), d), e)
-}
 
-fn g(n: usize, g: &Gate) -> Gate {
-    let i1 = &vecify(I1);
-    let mut arr = [i1,i1,i1,i1,i1];
-    arr[4-n] = g;
-    tp2(arr[0], arr[1], arr[2], arr[3], arr[4])
+//TODO reduce
+fn tp(a: &Gate, b: &Gate, c: &Gate, d: &Gate, e: &Gate, f: &Gate, g: &Gate, h: &Gate) -> Gate {
+   tensor_product(&tp2(a,b,c,d,e,f,g),h)
 }
-
-//TODO reduction
-fn g01(g: &Gate) -> Gate {
-    let i1 = &vecify(I1);
-    tp2(i1,i1,i1,i1,g)
+fn tp2(a: &Gate, b: &Gate, c: &Gate, d: &Gate, e: &Gate, f: &Gate, g: &Gate) -> Gate {
+    tensor_product(&tensor_product(&tensor_product(&tensor_product(&tensor_product(&tensor_product(a, b), c), d), e), f), g)
 }
-fn g12(g: &Gate) -> Gate {
+fn lift_gate(n: usize, gate: &Gate) -> Gate {
     let i1 = &vecify(I1);
-    tp2(i1,i1,i1,g,i1)
-}
-fn g23(g: &Gate) -> Gate {
-    let i1 = &vecify(I1);
-    tp2(i1,i1,g,i1,i1)
-}
-fn g34(g: &Gate) -> Gate {
-    let i1 = &vecify(I1);
-    tp2(i1,g,i1,i1,i1)
-}
-fn g45(g: &Gate) -> Gate {
-    let i1 = &vecify(I1);
-    tp2(g,i1,i1,i1,i1)
+    let mut arr = [i1,i1,i1,i1,i1,i1,i1,i1];
+    arr[NQ-1-n] = gate;
+    if gate.len() == 2 { // single qb
+        tp(arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7])
+    } else {
+        tp2(arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7])
+    }
 }
 
 fn join_gates(gates: Vec<&Gate>) -> Gate {
@@ -285,36 +271,20 @@ impl QVM {
     }
     fn operate(&mut self) {
         if let Instruction::Single(gate, qb) = &self.program[self.counter] {
-            let i1 = &self.gates["i1"];
             let gate = &self.gates[gate];
-            let lifted = match qb.as_str() {
-                //TODO reduction
-                "0" => tp(i1, i1, i1, i1, i1, gate),
-                "1" => tp(i1, i1, i1, i1, gate, i1),
-                "2" => tp(i1, i1, i1, gate, i1, i1),
-                "3" => tp(i1, i1, gate, i1, i1, i1),
-                "4" => tp(i1, gate, i1, i1, i1, i1),
-                "5" => tp(gate, i1, i1, i1, i1, i1),
-                _ => panic!("bad target {}", qb),
-            };
+            let qb = usize::from_str_radix(&qb, 10).unwrap();
+            let lifted = lift_gate(qb, gate);
             self.state.apply(vec![&lifted]);
         } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
             let swap = &self.gates["swap"];
-            let swappers: Vec<Gate> = (0..5).map(|n| g(n,swap)).collect();
+            let swappers: Vec<Gate> = (0..NQ-1).map(|n| lift_gate(n,swap)).collect();
 
             let qb0 = usize::from_str_radix(&qb0, 10).unwrap();
             let qb1 = usize::from_str_radix(&qb1, 10).unwrap();
+            let low = min(qb0, qb1);
+            let high = max(qb0, qb1);
 
-            let low;
-            let high;
-            if qb0 > qb1 { 
-                low = qb1;
-                high = qb0;
-            } else {
-                low = qb0;
-                high = qb1;
-            };
-            let gate = &g(low, &self.gates[gate]);
+            let gate = &lift_gate(low, &self.gates[gate]);
             let mut gatelist = Vec::new();
             for i in 0..(high-low) {
                 gatelist.push(&swappers[high-1-i]);
@@ -416,19 +386,18 @@ swap 3 0
         assert!(eq(qvm.state[7].re, 1.0)); // 00111
     }
 
+    //TODO bench this make it fast!
     #[test]
-    fn q456() {
-        let prog = "x 1
-x 3
-x 4
-swap 2 4
-swap 1 0
-swap 0 4
-x 5
+    fn q4567() {
+        let prog = "x 0
+x 1
 swap 5 0
+swap 1 6
+x 2
+swap 2 7
 ".into();
         let qvm = run_test(prog);
-        assert!(eq(qvm.state[29].re, 1.0)); // 11101
+        assert!(eq(qvm.state[224].re, 1.0)); // 1100000
     }
 
 }
