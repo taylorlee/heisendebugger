@@ -189,22 +189,23 @@ fn tensor_product(a: &Gate, b: &Gate) -> Gate {
     mat
 }
 
-//TODO reduce
-fn tp(a: &Gate, b: &Gate, c: &Gate, d: &Gate, e: &Gate, f: &Gate, g: &Gate, h: &Gate) -> Gate {
-   tensor_product(&tp2(a,b,c,d,e,f,g),h)
-}
-fn tp2(a: &Gate, b: &Gate, c: &Gate, d: &Gate, e: &Gate, f: &Gate, g: &Gate) -> Gate {
-    tensor_product(&tensor_product(&tensor_product(&tensor_product(&tensor_product(&tensor_product(a, b), c), d), e), f), g)
-}
 fn lift_gate(n: usize, gate: &Gate) -> Gate {
     let i1 = &vecify(I1);
+
     let mut arr = [i1,i1,i1,i1,i1,i1,i1,i1];
     arr[NQ-1-n] = gate;
+
+    let start;
     if gate.len() == 2 { // single qb
-        tp(arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7])
+        start = 0;
     } else {
-        tp2(arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7])
+        start = 1;
     }
+    let mut prod = (*arr[start]).clone();
+    for i in start+1..NQ {
+        prod = tensor_product(&prod, arr[i]);
+    }
+    prod
 }
 
 fn join_gates(gates: Vec<&Gate>) -> Gate {
@@ -315,9 +316,16 @@ pub fn fmt_tensor(value: Complex, n: usize) -> String {
         format!("|{}> {}", repr, value)
     }
 }
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    //use test::Bencher;
+
+
     fn run_test(prog: String) -> QVM {
         let mut qvm = QVM::new();
         qvm.update(&prog);
@@ -386,7 +394,6 @@ swap 3 0
         assert!(eq(qvm.state[7].re, 1.0)); // 00111
     }
 
-    //TODO bench this make it fast!
     #[test]
     fn q4567() {
         let prog = "x 0
@@ -400,4 +407,18 @@ swap 2 7
         assert!(eq(qvm.state[224].re, 1.0)); // 1100000
     }
 
+    //#[bench]
+    //fn bench_(b: &mut Bencher) {
+        //b.iter(|| {
+            //let prog = "
+//x 0
+//swap 0 7
+//cnot 7 5
+//h 4
+//cnot 4 5
+//".into();
+            //let qvm = run_test(prog);
+            //debug_state(qvm.state);
+        //});
+    //}
 }

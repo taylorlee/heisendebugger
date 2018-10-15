@@ -2,6 +2,9 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+//#![feature(test)]
+//extern crate test;
+
 #[macro_use]
 extern crate yew;
 extern crate num_complex;
