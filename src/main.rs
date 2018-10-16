@@ -183,13 +183,29 @@ fn view(model: &Model) -> Html<Msg> {
     let err = |editor: &Editor| if editor.error { "ERROR!" } else { "" };
     let gates = match model.gates.state {
         State::Ready => html! {
-            <button class="button", onclick=move|_| Msg::EditGates,>{"Edit Gates"}</button>
+            <div class="level",>
+                <div class="level-item",>
+                    <button class="button", onclick=move|_| Msg::EditGates,>{"Edit Gates"}</button>
+                </div>
+            </div>
         },
         State::Editing => html! {
             <div>
-                <div>{err(&model.gates)}</div>
-                <button class="button", onclick=move|_| Msg::SaveGates,>{"Save Gates"}</button>
-                <textarea id="gates", cols=30, rows=25,>{&model.gates.edit} </textarea>
+                <div class="level",>
+                    <div class="level-item",>
+                        <button class="button", onclick=move|_| Msg::SaveGates,>{"Save Gates"}</button>
+                    </div>
+                </div>
+                <div class="level",>
+                    <div class="level-item",>
+                        <div>{err(&model.gates)}</div>
+                    </div>
+                </div>
+                <div class="level",>
+                    <div class="level-item",>
+                    <textarea id="gates", cols=30, rows=25,>{&model.gates.edit} </textarea>
+                    </div>
+                </div>
             </div>
         },
     };
@@ -197,17 +213,40 @@ fn view(model: &Model) -> Html<Msg> {
     let program = match model.program.state {
         State::Ready => html! {
             <div>
-                <button class="button", onclick=move|_| Msg::EditProgram,>{"Edit Program"}</button>
-                <br></br>
-                <textarea disabled=true, id="program", cols=30, rows=25,>{&model.program.edit} </textarea>
+                <div class="level",>
+                    <div class="level-item",>
+                    <button class="button", onclick=move|_| Msg::EditProgram,>{"Edit Program"}</button>
+                    </div>
+                </div>
+                <div class="level",>
+                    <div class="level-item",>
+                    <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
+                    </div>
+                </div>
+                <div class="level",>
+                    <div class="level-item",>
+                    <textarea disabled=true, id="program", cols=30, rows=25,>{&model.program.edit} </textarea>
+                    </div>
+                </div>
             </div>
         },
         State::Editing => html! {
             <div>
-                <div>{err(&model.program)}</div>
-                <button class="button", onclick=move|_| Msg::SaveProgram,>{"Save Program"}</button>
-                <br></br>
-                <textarea id="program", cols=30, rows=25,>{&model.program.edit} </textarea>
+                <div class="level",>
+                    <div class="level-item",>
+                        <button class="button", onclick=move|_| Msg::SaveProgram,>{"Save Program"}</button>
+                    </div>
+                </div>
+                <div class="level",>
+                    <div class="level-item",>
+                        <div>{err(&model.program)}</div>
+                    </div>
+                </div>
+                <div class="level",>
+                    <div class="level-item",>
+                        <textarea id="program", cols=30, rows=25,>{&model.program.edit} </textarea>
+                    </div>
+                </div>
             </div>
         },
     };
@@ -220,39 +259,62 @@ fn view(model: &Model) -> Html<Msg> {
                 <span/>
             }
         } else {
+            let (tens, co) = qvm::fmt_tensor(value, n);
             html! {
-                <span>
-                    <br></br>
-                    { qvm::fmt_tensor(value, n) }
-                </span>
+                <div class="level",>
+                    <div class="level-item",>
+                        <div class=("tags","has-addons"),>
+                            <div class=("tag","is-primary"),>
+                                 { tens }
+                            </div>
+                            <div class="tag",>
+                                 { co }
+                            </div>
+                        </div>
+                    </div>
+                </div>
             }
         }
     };
     html! {
-        <div>
-            <section class="section",>
-            <select>
-                <option onclick=move|_| Msg::Bell,>{"Bell"}</option>
-                <option onclick=move|_| Msg::XYZ,>{"XYZ"}</option>
-            </select>
+        <section class="section",>
+            <div class="container",>
+                <div class="level",>
+                    <div class="level-item",>
+                        <div class="select",>
+                            <select>
+                                <option selected=true, disabled=true,>{ "Example Program:" }</option>
+                                <option onclick=move|_| Msg::Bell,>{"Bell"}</option>
+                                <option onclick=move|_| Msg::XYZ,>{"XYZ"}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
-                <br></br>
-                { gates }
-                <br></br>
+                <div class="level",>
+                    <div class="level-item",>
+                        { gates }
+                    </div>
+                </div>
+
                 { program }
-                <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
-                <button class="button", onclick=move|_| Msg::Beginning,>{ "<<" }</button>
-                <button class="button", onclick=move|_| Msg::Prev,>{ "<" }</button>
-                <button class="button", onclick=move|_| Msg::Next,>{ ">" }</button>
-                <button class="button", onclick=move|_| Msg::End,>{ ">>" }</button>
-                <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
-                <br></br>
-                <span class=("tag","is-primary"),>
-                    {"Quantum State: "}
-                    { for (0..model.qvm.state.len()).map(coeff) }
-                </span>
-                <br></br>
-            </section>
-        </div>
+
+                <div class="level",>
+                    <div class="level-item",>
+                        <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
+                        <button class="button", onclick=move|_| Msg::Beginning,>{ "<<" }</button>
+                        <button class="button", onclick=move|_| Msg::Prev,>{ "<" }</button>
+                        <button class="button", onclick=move|_| Msg::Next,>{ ">" }</button>
+                        <button class="button", onclick=move|_| Msg::End,>{ ">>" }</button>
+                    </div>
+                </div>
+                <div class="level",>
+                    <div class="level-item",>
+                        <div class="tag",>{"Quantum State: "}</div>
+                    </div>
+                </div>
+                { for (0..model.qvm.state.len()).map(coeff) }
+            </div>
+        </section>
     }
 }

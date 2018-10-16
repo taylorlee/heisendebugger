@@ -192,7 +192,7 @@ fn tensor_product(a: &Gate, b: &Gate) -> Gate {
 fn lift_gate(n: usize, gate: &Gate) -> Gate {
     let i1 = &vecify(I1);
 
-    let mut arr = [i1,i1,i1,i1,i1,i1,i1,i1];
+    let mut arr = [i1; NQ];
     arr[NQ-1-n] = gate;
 
     let start;
@@ -308,12 +308,11 @@ impl QVM {
         }
     }
 }
-pub fn fmt_tensor(value: Complex, n: usize) -> String {
+pub fn fmt_tensor(value: Complex, n: usize) -> (String, String) {
     if is_zero(value) {
-        "".into()
+        ("".into(), "".into())
     } else {
-        let repr = format!("{:08b}", n);
-        format!("|{}> {}", repr, value)
+        (format!("|{:08b}>", n), format!("{}", value))
     }
 }
 
@@ -339,14 +338,14 @@ mod tests {
         qvm
     }
     fn debug_state(state: Qstate) {
-        println!("");
+        println!();
         let coeffs = state
             .iter()
             .enumerate()
             .map(|(i, elem)| fmt_tensor(*elem, i));
 
-        for string in coeffs {
-            if string.len() > 0 {
+        for strings in coeffs {
+            if string[0].len() > 0 {
                 println!("{}", string);
             }
         }

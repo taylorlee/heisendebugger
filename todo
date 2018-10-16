@@ -1,6 +1,5 @@
 
 hdb
-    bench & optimize to < 10s test suite
     allow multi qb gates
 
     change textarea to hilight exec line
