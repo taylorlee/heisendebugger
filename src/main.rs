@@ -76,10 +76,12 @@ fn main() {
         program: Editor {
             state: State::Ready,
             edit: "x 0
-cnot 0 1
-x 3
-swap 2 3"
-                .to_string(),
+cnot 0 7
+x 5
+y 6
+cnot 1 5
+swap 2 6
+".to_string(),
             error: false,
         },
     };
@@ -220,11 +222,6 @@ fn view(model: &Model) -> Html<Msg> {
                 </div>
                 <div class="level",>
                     <div class="level-item",>
-                    <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
-                    </div>
-                </div>
-                <div class="level",>
-                    <div class="level-item",>
                     <textarea disabled=true, id="program", cols=30, rows=25,>{&model.program.edit} </textarea>
                     </div>
                 </div>
@@ -308,6 +305,12 @@ fn view(model: &Model) -> Html<Msg> {
                         <button class="button", onclick=move|_| Msg::End,>{ ">>" }</button>
                     </div>
                 </div>
+                <div class="level",>
+                    <div class="level-item",>
+                    <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
+                    </div>
+                </div>
+
                 <div class="level",>
                     <div class="level-item",>
                         <div class="tag",>{"Quantum State: "}</div>

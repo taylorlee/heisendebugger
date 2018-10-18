@@ -317,12 +317,10 @@ pub fn fmt_tensor(value: Complex, n: usize) -> (String, String) {
 }
 
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    //use test::Bencher;
+    use test::Bencher;
 
 
     fn run_test(prog: String) -> QVM {
@@ -345,8 +343,8 @@ mod tests {
             .map(|(i, elem)| fmt_tensor(*elem, i));
 
         for strings in coeffs {
-            if string[0].len() > 0 {
-                println!("{}", string);
+            if strings.0.len() > 0 {
+                println!("{} {}", strings.0, strings.1);
             }
         }
     }
@@ -407,14 +405,49 @@ swap 2 7
     }
 
     //#[bench]
-    //fn bench_(b: &mut Bencher) {
+    //fn bench_1gate(b: &mut Bencher) {
         //b.iter(|| {
             //let prog = "
 //x 0
-//swap 0 7
-//cnot 7 5
-//h 4
+//y 1
+//z 2
+//h 3
+//x 4
+//y 5
+//z 6
+//h 7
+//".into();
+            //let qvm = run_test(prog);
+            //debug_state(qvm.state);
+        //});
+    //}
+    //#[bench]
+    //fn bench_2gate(b: &mut Bencher) {
+        //b.iter(|| {
+            //let prog = "
+//x 0
+//cnot 0 1
+//swap 1 2
+//cnot 2 3
+//swap 3 4
 //cnot 4 5
+//swap 5 6
+//cnot 6 7
+//".into();
+            //let qvm = run_test(prog);
+            //debug_state(qvm.state);
+        //});
+    //}
+    //#[bench]
+    //fn bench_2gate_opp(b: &mut Bencher) {
+        //b.iter(|| {
+            //let prog = "
+//x 0
+//cnot 0 7
+//x 5
+//y 6
+//cnot 1 5
+//swap 2 6
 //".into();
             //let qvm = run_test(prog);
             //debug_state(qvm.state);
