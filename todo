@@ -1,16 +1,25 @@
 
 hdb
     allow multi qb gates
-
-    change textarea to hilight exec line
-    easier gate mod
     measurement
-    refactor editor component?
 
+ui
+    button all on top
+    program / state adjacent
+    easier gate mod: json [[f32]] -> csv c32
+    
+components
+    refactor editor
+    refactor level
+
+examples
+    deutch
+    grovers
+
+demo
     deploy via gh pages
 
 rust
-    manual copying warning?
     no lock checks
     html tag checks static
     faster build

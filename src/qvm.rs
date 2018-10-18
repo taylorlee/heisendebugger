@@ -43,22 +43,6 @@ pub struct QVM {
     gates: BTreeMap<String, Gate>,
 }
 
-trait MutableState {
-    fn apply(&mut self, _gates: Vec<&Gate>) {
-    }
-}
-
-impl MutableState for Qstate {
-    fn apply(&mut self, gates: Vec<&Gate>) {
-        // apply a series of lifted gates to a quantum state
-        let gate = join_gates(gates);
-        let new_state = dot_product(&gate, &self);
-        for (i, elem) in new_state.iter().enumerate() {
-            self[i] = *elem;
-        }
-    }
-}
-
 fn mul(this: &Gate, other: &Gate) -> Gate {
     // matrix multiplication
     let size = this.len();
@@ -275,7 +259,7 @@ impl QVM {
             let gate = &self.gates[gate];
             let qb = usize::from_str_radix(&qb, 10).unwrap();
             let lifted = lift_gate(qb, gate);
-            self.state.apply(vec![&lifted]);
+            self.state = dot_product(&lifted, &self.state);
         } else if let Instruction::Double(gate, qb0, qb1) = &self.program[self.counter] {
             let swap = &self.gates["swap"];
             let swappers: Vec<Gate> = (0..NQ-1).map(|n| lift_gate(n,swap)).collect();
@@ -291,8 +275,7 @@ impl QVM {
                 gatelist.push(&swappers[high-1-i]);
             }
             gatelist.push(gate);
-
-            self.state.apply(gatelist);
+            self.state = dot_product(&join_gates(gatelist), &self.state);
         }
     }
     pub fn prev(&mut self) {
@@ -348,6 +331,9 @@ mod tests {
             }
         }
     }
+    fn check_qubit(qvm: &QVM, bit: &str, n: f32) {
+        assert!(eq(qvm.state[usize::from_str_radix(bit, 2).unwrap()].re, n)); // 00000
+    }
     #[test]
     fn bell() {
         let prog = "h 0
@@ -355,8 +341,8 @@ cnot 0 1
 ".into();
         let qvm = run_test(prog);
         let n = 1.0 / 2.0_f32.sqrt();
-        assert!(eq(qvm.state[0].re, n)); // 00000
-        assert!(eq(qvm.state[3].re, n)); // 00011
+        check_qubit(&qvm, "0", n);
+        check_qubit(&qvm, "11", n);
     }
     #[test]
     fn swaps() {
@@ -365,7 +351,7 @@ cnot 0 1
 swap 1 2
 ".into();
         let qvm = run_test(prog);
-        assert!(eq(qvm.state[5].re, 1.0)); // 00101
+        check_qubit(&qvm, "101", 1.0);
     }
     #[test]
     fn swap02() {
@@ -376,7 +362,7 @@ x 0
 swap 2 0
 ".into();
         let qvm = run_test(prog);
-        assert!(eq(qvm.state[6].re, 1.0)); // 00110
+        check_qubit(&qvm, "110", 1.0);
     }
     #[test]
     fn swap23() {
@@ -388,7 +374,7 @@ x 3
 swap 3 0
 ".into();
         let qvm = run_test(prog);
-        assert!(eq(qvm.state[7].re, 1.0)); // 00111
+        check_qubit(&qvm, "111", 1.0);
     }
 
     #[test]
@@ -401,56 +387,6 @@ x 2
 swap 2 7
 ".into();
         let qvm = run_test(prog);
-        assert!(eq(qvm.state[224].re, 1.0)); // 1100000
+        check_qubit(&qvm, "11100000", 1.0);
     }
-
-    //#[bench]
-    //fn bench_1gate(b: &mut Bencher) {
-        //b.iter(|| {
-            //let prog = "
-//x 0
-//y 1
-//z 2
-//h 3
-//x 4
-//y 5
-//z 6
-//h 7
-//".into();
-            //let qvm = run_test(prog);
-            //debug_state(qvm.state);
-        //});
-    //}
-    //#[bench]
-    //fn bench_2gate(b: &mut Bencher) {
-        //b.iter(|| {
-            //let prog = "
-//x 0
-//cnot 0 1
-//swap 1 2
-//cnot 2 3
-//swap 3 4
-//cnot 4 5
-//swap 5 6
-//cnot 6 7
-//".into();
-            //let qvm = run_test(prog);
-            //debug_state(qvm.state);
-        //});
-    //}
-    //#[bench]
-    //fn bench_2gate_opp(b: &mut Bencher) {
-        //b.iter(|| {
-            //let prog = "
-//x 0
-//cnot 0 7
-//x 5
-//y 6
-//cnot 1 5
-//swap 2 6
-//".into();
-            //let qvm = run_test(prog);
-            //debug_state(qvm.state);
-        //});
-    //}
 }

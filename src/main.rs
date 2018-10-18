@@ -2,8 +2,8 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-//#![feature(test)]
-//extern crate test;
+#![feature(test)]
+extern crate test;
 
 #[macro_use]
 extern crate yew;
@@ -31,6 +31,14 @@ enum State {
 }
 
 #[derive(Clone, Copy)]
+pub enum Example {
+    Bell,
+    SingleGates,
+    DoubleGates,
+    FullSuperPosition,
+}
+
+#[derive(Clone, Copy)]
 pub enum Msg {
     Noop,
     Reset,
@@ -40,14 +48,12 @@ pub enum Msg {
     Next,
     End,
 
+    Load(Example),
     EditProgram,
     SaveProgram,
 
     EditGates,
     SaveGates,
-
-    Bell,
-    XYZ,
 }
 
 struct Context {}
@@ -75,19 +81,15 @@ fn main() {
         },
         program: Editor {
             state: State::Ready,
-            edit: "x 0
-cnot 0 7
-x 5
-y 6
-cnot 1 5
-swap 2 6
-".to_string(),
+            edit: "".to_string(),
             error: false,
         },
     };
     model.qvm.update(&model.program.edit);
     model.gates.edit = model.qvm.show_gates();
-    app.mount(Context {}, model, update, view);
+    let mut ctx = Context {};
+    update(&mut ctx, &mut model, Msg::Load(Example::Bell));
+    app.mount(ctx, model, update, view);
     run_loop();
 }
 
@@ -110,24 +112,39 @@ fn update(_: &mut Context, model: &mut Model, msg: Msg) {
         Msg::Reset => {
             model.qvm.reset();
         }
-        Msg::Bell => {
-            reset_prog(model, "h 0\ncnot 0 1".to_string());
-        }
-        Msg::XYZ => {
-            reset_prog(
-                model,
-                "x 0
-y 0
-z 0
-x 1
+        Msg::Load(ex) => {
+            let prog = match ex {
+                Example::Bell => "h 0
+cnot 0 1".to_string(),
+                Example::SingleGates => "x 0
 y 1
-z 1
-h 0
+z 2
+h 3
+x 4
+y 5
+z 6
+h 7".to_string(),
+                Example::DoubleGates => "x 0
+cnot 0 1
+swap 1 2
+cnot 2 3
+swap 3 4
+cnot 4 5
+swap 5 6
+cnot 6 7
+swap 7 0
+cnot 0 7".to_string(),
+                Example::FullSuperPosition => "h 0
 h 1
-".to_string(),
-            );
+h 2
+h 3
+h 4
+h 5
+h 6
+h 7".to_string(),
+            };
+            reset_prog(model, prog);
         }
-
         Msg::EditGates => {
             model.gates.state = State::Editing;
         }
@@ -211,7 +228,43 @@ fn view(model: &Model) -> Html<Msg> {
             </div>
         },
     };
+    let instruction = |(i, line): (usize, &str)| {
+        if i == model.qvm.counter {
+            html! {
+                <li><b class="has-text-danger",>{ line }</b> <i>{"   (next instruction)"}</i></li>
+            }
+        } else {
+            html! {
+                <li>{ line }</li>
+            }
+        }
+    };
+    let coeff = |n| {
+        let value = model.qvm.state[n];
+        if qvm::is_zero(value) {
+            html! {
+                <div></div>
+            }
+        } else {
+            let (tens, co) = qvm::fmt_tensor(value, n);
+            html! {
+                <div class="level",>
+                    <div class="level-item",>
+                        <div class=("tags","has-addons"),>
+                            <div class=("tag","is-info"),>
+                                 { tens }
+                            </div>
+                            <div class="tag",>
+                                 { co }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    };
 
+    let lines = model.program.edit.to_string() + "\n \n";
     let program = match model.program.state {
         State::Ready => html! {
             <div>
@@ -222,8 +275,26 @@ fn view(model: &Model) -> Html<Msg> {
                 </div>
                 <div class="level",>
                     <div class="level-item",>
-                    <textarea disabled=true, id="program", cols=30, rows=25,>{&model.program.edit} </textarea>
+                        <div>{"Quantum State: "}</div>
                     </div>
+                </div>
+                { for (0..model.qvm.state.len()).map(coeff) }
+                <div class="level",>
+                    <div class="level-item",>
+                        <div>{"Program: "}</div>
+                    </div>
+                </div>
+
+                <div class="level",>
+                    <div class="level-item",>
+                        <div class="content",>
+                            <ol>
+                            { for lines.lines().enumerate().map(instruction) }
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                <div>
                 </div>
             </div>
         },
@@ -241,38 +312,13 @@ fn view(model: &Model) -> Html<Msg> {
                 </div>
                 <div class="level",>
                     <div class="level-item",>
-                        <textarea id="program", cols=30, rows=25,>{&model.program.edit} </textarea>
+                        <textarea id="program", cols=30, rows=15,>{&model.program.edit} </textarea>
                     </div>
                 </div>
             </div>
         },
     };
 
-    let coeff = |n| {
-        let value = model.qvm.state[n];
-        if qvm::is_zero(value) {
-            html! {
-                <span>
-                <span/>
-            }
-        } else {
-            let (tens, co) = qvm::fmt_tensor(value, n);
-            html! {
-                <div class="level",>
-                    <div class="level-item",>
-                        <div class=("tags","has-addons"),>
-                            <div class=("tag","is-primary"),>
-                                 { tens }
-                            </div>
-                            <div class="tag",>
-                                 { co }
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-        }
-    };
     html! {
         <section class="section",>
             <div class="container",>
@@ -280,9 +326,11 @@ fn view(model: &Model) -> Html<Msg> {
                     <div class="level-item",>
                         <div class="select",>
                             <select>
-                                <option selected=true, disabled=true,>{ "Example Program:" }</option>
-                                <option onclick=move|_| Msg::Bell,>{"Bell"}</option>
-                                <option onclick=move|_| Msg::XYZ,>{"XYZ"}</option>
+                                <option disabled=true,>{ "Example Program:" }</option>
+                                <option selected=true, onclick=move|_| Msg::Load(Example::Bell),>{"Bell State"}</option>
+                                <option onclick=move|_| Msg::Load(Example::SingleGates),>{"One Qubit Gates"}</option>
+                                <option onclick=move|_| Msg::Load(Example::DoubleGates),>{"Two Qubit Gates"}</option>
+                                <option onclick=move|_| Msg::Load(Example::FullSuperPosition),>{"Full Superposition"}</option>
                             </select>
                         </div>
                     </div>
@@ -293,7 +341,6 @@ fn view(model: &Model) -> Html<Msg> {
                         { gates }
                     </div>
                 </div>
-
                 { program }
 
                 <div class="level",>
@@ -305,19 +352,91 @@ fn view(model: &Model) -> Html<Msg> {
                         <button class="button", onclick=move|_| Msg::End,>{ ">>" }</button>
                     </div>
                 </div>
-                <div class="level",>
-                    <div class="level-item",>
-                    <span class=("tag","is-primary"),> {"counter: "} { model.qvm.counter } </span>
-                    </div>
-                </div>
-
-                <div class="level",>
-                    <div class="level-item",>
-                        <div class="tag",>{"Quantum State: "}</div>
-                    </div>
-                </div>
-                { for (0..model.qvm.state.len()).map(coeff) }
             </div>
         </section>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test::Bencher;
+
+    // last run:
+    
+    //test tests::bell        ... bench: 166,905,258 ns/iter (+/- 28,038,096)
+    //test tests::gate1       ... bench:   8,055,309 ns/iter (+/- 1,420,677)
+    //test tests::gate2       ... bench: 1,177,078,906 ns/iter (+/- 150,531,188)
+    //test tests::empty       ... bench: 172,861,382 ns/iter (+/- 24,259,132)
+    
+
+    fn run_bench(prog: String) {
+        let mut model = Model {
+            qvm: qvm::QVM::new(),
+            gates: Editor {
+                state: State::Ready,
+                edit: "".to_string(),
+                error: false,
+            },
+            program: Editor {
+                state: State::Ready,
+                edit: "".to_string(),
+                error: false,
+            },
+        };
+        model.qvm.update(&model.program.edit);
+        model.gates.edit = model.qvm.show_gates();
+
+        reset_prog(&mut model, prog);
+        loop {
+            if model.qvm.counter == model.qvm.program.len() {
+                break;
+            }
+            model.qvm.next();
+        }
+    }
+    #[bench]
+    fn empty(b: &mut Bencher) {
+        b.iter(|| {
+            run_bench("swap 1 0".to_string());
+        });
+    }
+
+    #[bench]
+    fn bell(b: &mut Bencher) {
+        b.iter(|| {
+            run_bench("h 0
+cnot 0 1".to_string());
+        });
+    }
+    #[bench]
+    fn gate1(b: &mut Bencher) {
+        b.iter(|| {
+            run_bench("x 0
+y 1
+z 2
+h 3
+x 4
+y 5
+z 6
+h 7".into());
+        });
+    }
+    #[bench]
+    fn gate2(b: &mut Bencher) {
+        b.iter(|| {
+            run_bench("x 0
+cnot 0 1
+swap 1 2
+cnot 2 3
+swap 3 4
+cnot 4 5
+swap 5 6
+cnot 6 7".to_string());
+
+"swap 7 0
+cnot 0 7"
+        ;
+        });
     }
 }
