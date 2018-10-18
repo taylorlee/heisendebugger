@@ -231,7 +231,7 @@ fn view(model: &Model) -> Html<Msg> {
     let instruction = |(i, line): (usize, &str)| {
         if i == model.qvm.counter {
             html! {
-                <li><b class="has-text-danger",>{ line }</b> <i>{"   (next instruction)"}</i></li>
+                <li><b>{ line }</b> <i class="has-text-info",>{"   (next instruction)"}</i></li>
             }
         } else {
             html! {
@@ -275,10 +275,14 @@ fn view(model: &Model) -> Html<Msg> {
                 </div>
                 <div class="level",>
                     <div class="level-item",>
-                        <div>{"Quantum State: "}</div>
+                        <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
+                        <button class="button", onclick=move|_| Msg::Beginning,>{ "<<" }</button>
+                        <button class="button", onclick=move|_| Msg::Prev,>{ "<" }</button>
+                        <button class="button", onclick=move|_| Msg::Next,>{ ">" }</button>
+                        <button class="button", onclick=move|_| Msg::End,>{ ">>" }</button>
                     </div>
                 </div>
-                { for (0..model.qvm.state.len()).map(coeff) }
+
                 <div class="level",>
                     <div class="level-item",>
                         <div>{"Program: "}</div>
@@ -294,8 +298,12 @@ fn view(model: &Model) -> Html<Msg> {
                         </div>
                     </div>
                 </div>
-                <div>
+                <div class="level",>
+                    <div class="level-item",>
+                        <div>{"Quantum State: "}</div>
+                    </div>
                 </div>
+                { for (0..model.qvm.state.len()).map(coeff) }
             </div>
         },
         State::Editing => html! {
@@ -343,15 +351,6 @@ fn view(model: &Model) -> Html<Msg> {
                 </div>
                 { program }
 
-                <div class="level",>
-                    <div class="level-item",>
-                        <button class="button", onclick=move|_| Msg::Reset,>{ "Reset" }</button>
-                        <button class="button", onclick=move|_| Msg::Beginning,>{ "<<" }</button>
-                        <button class="button", onclick=move|_| Msg::Prev,>{ "<" }</button>
-                        <button class="button", onclick=move|_| Msg::Next,>{ ">" }</button>
-                        <button class="button", onclick=move|_| Msg::End,>{ ">>" }</button>
-                    </div>
-                </div>
             </div>
         </section>
     }
