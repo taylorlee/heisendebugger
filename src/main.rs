@@ -2,8 +2,9 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-#![feature(test)]
-extern crate test;
+//#![feature(test)]
+//extern crate test;
+
 
 #[macro_use]
 extern crate yew;
@@ -14,6 +15,7 @@ extern crate stdweb;
 
 #[macro_use]
 extern crate serde_derive;
+
 
 mod qvm;
 
@@ -356,86 +358,85 @@ fn view(model: &Model) -> Html<Msg> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use test::Bencher;
+//#[cfg(test)]
+//mod tests {
+    //use super::*;
+    //use test::Bencher;
 
-    // last run:
+    //// last run:
     
-    //test tests::bell        ... bench: 166,905,258 ns/iter (+/- 28,038,096)
-    //test tests::gate1       ... bench:   8,055,309 ns/iter (+/- 1,420,677)
-    //test tests::gate2       ... bench: 1,177,078,906 ns/iter (+/- 150,531,188)
-    //test tests::empty       ... bench: 172,861,382 ns/iter (+/- 24,259,132)
+    ////test tests::bell        ... bench: 166,905,258 ns/iter (+/- 28,038,096)
+    ////test tests::gate1       ... bench:   8,055,309 ns/iter (+/- 1,420,677)
+    ////test tests::gate2       ... bench: 1,177,078,906 ns/iter (+/- 150,531,188)
+    ////test tests::empty       ... bench: 172,861,382 ns/iter (+/- 24,259,132)
     
+    //fn run_bench(prog: String) {
+        //let mut model = Model {
+            //qvm: qvm::QVM::new(),
+            //gates: Editor {
+                //state: State::Ready,
+                //edit: "".to_string(),
+                //error: false,
+            //},
+            //program: Editor {
+                //state: State::Ready,
+                //edit: "".to_string(),
+                //error: false,
+            //},
+        //};
+        //model.qvm.update(&model.program.edit);
+        //model.gates.edit = model.qvm.show_gates();
 
-    fn run_bench(prog: String) {
-        let mut model = Model {
-            qvm: qvm::QVM::new(),
-            gates: Editor {
-                state: State::Ready,
-                edit: "".to_string(),
-                error: false,
-            },
-            program: Editor {
-                state: State::Ready,
-                edit: "".to_string(),
-                error: false,
-            },
-        };
-        model.qvm.update(&model.program.edit);
-        model.gates.edit = model.qvm.show_gates();
+        //reset_prog(&mut model, prog);
+        //loop {
+            //if model.qvm.counter == model.qvm.program.len() {
+                //break;
+            //}
+            //model.qvm.next();
+        //}
+    //}
+    //#[bench]
+    //fn empty(b: &mut Bencher) {
+        //b.iter(|| {
+            //run_bench("swap 1 0".to_string());
+        //});
+    //}
 
-        reset_prog(&mut model, prog);
-        loop {
-            if model.qvm.counter == model.qvm.program.len() {
-                break;
-            }
-            model.qvm.next();
-        }
-    }
-    #[bench]
-    fn empty(b: &mut Bencher) {
-        b.iter(|| {
-            run_bench("swap 1 0".to_string());
-        });
-    }
+    //#[bench]
+    //fn bell(b: &mut Bencher) {
+        //b.iter(|| {
+            //run_bench("h 0
+//cnot 0 1".to_string());
+        //});
+    //}
+    //#[bench]
+    //fn gate1(b: &mut Bencher) {
+        //b.iter(|| {
+            //run_bench("x 0
+//y 1
+//z 2
+//h 3
+//x 4
+//y 5
+//z 6
+//h 7".into());
+        //});
+    //}
+    //#[bench]
+    //fn gate2(b: &mut Bencher) {
+        //b.iter(|| {
+            //run_bench("x 0
+//cnot 0 1
+//swap 1 2
+//cnot 2 3
+//swap 3 4
+//cnot 4 5
+//swap 5 6
+//cnot 6 7".to_string());
 
-    #[bench]
-    fn bell(b: &mut Bencher) {
-        b.iter(|| {
-            run_bench("h 0
-cnot 0 1".to_string());
-        });
-    }
-    #[bench]
-    fn gate1(b: &mut Bencher) {
-        b.iter(|| {
-            run_bench("x 0
-y 1
-z 2
-h 3
-x 4
-y 5
-z 6
-h 7".into());
-        });
-    }
-    #[bench]
-    fn gate2(b: &mut Bencher) {
-        b.iter(|| {
-            run_bench("x 0
-cnot 0 1
-swap 1 2
-cnot 2 3
-swap 3 4
-cnot 4 5
-swap 5 6
-cnot 6 7".to_string());
-
-"swap 7 0
-cnot 0 7"
-        ;
-        });
-    }
-}
+//"swap 7 0
+//cnot 0 7"
+        //;
+        //});
+    //}
+//}
